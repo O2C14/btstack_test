@@ -198,11 +198,15 @@ static void bl_onchiphci_rx_packet_handler(uint8_t pkt_type, uint16_t src_id, ui
       case BT_HCI_CMD_STAT_EVT:
       case BT_HCI_LE_EVT:
       case BT_HCI_EVT: {
+        taskENTER_CRITICAL();
         rx_msg.param = btstack_memory_pool_get(evt_rx_pool_handle);
+        taskEXIT_CRITICAL();
         break;
       }
       case BT_HCI_ACL_DATA: {
+        taskENTER_CRITICAL();
         rx_msg.param = btstack_memory_pool_get(acl_rx_pool_handle);
+        taskEXIT_CRITICAL();
         break;
       }
       default: {
@@ -233,16 +237,24 @@ static void transport_deliver_hci_packets(void)
   while (xQueueReceive(msg_queue, &msg, 0) == pdTRUE) {
     if (msg.param) {
       if (msg.pkt_type == BT_HCI_ACL_DATA) {
+        taskENTER_CRITICAL();
         tmp_buf = btstack_memory_pool_get(&acl_rx_pool_handle);
+        taskEXIT_CRITICAL();
         bl_packet_to_hci(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
+        taskENTER_CRITICAL();
         btstack_memory_pool_free(&acl_rx_pool_handle, tmp_buf);
         btstack_memory_pool_free(&acl_rx_pool_handle, msg.param);
+        taskEXIT_CRITICAL();
         tmp_buf = NULL;
       } else {
+        taskENTER_CRITICAL();
         tmp_buf = btstack_memory_pool_get(&evt_rx_pool_handle);
+        taskEXIT_CRITICAL();
         bl_packet_to_hci(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
+        taskENTER_CRITICAL();
         btstack_memory_pool_free(&evt_rx_pool_handle, tmp_buf);
         btstack_memory_pool_free(&evt_rx_pool_handle, msg.param);
+        taskEXIT_CRITICAL();
       }
       msg.param = NULL;
     }
