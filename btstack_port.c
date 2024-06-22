@@ -43,6 +43,7 @@
 #include "easyflash.h"
 #include "btstack_tlv.h"
 #include "ble/le_device_db_tlv.h"
+#include "classic/btstack_link_key_db_tlv.h"
 static void (*transport_packet_handler)(uint8_t packet_type, uint8_t *packet, uint16_t size);
 
 struct rx_msg_struct {
@@ -483,7 +484,7 @@ static void local_version_information_handler(uint8_t *packet)
   printf("- LMP Subversion %#04x\n", lmp_subversion);
   printf("- Manufacturer   %#04x\n", manufacturer);
 }
-
+static const btstack_tlv_t btstack_tlv_impl;
 static bd_addr_t local_addr = { 0 };
 static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
@@ -495,9 +496,15 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
       switch (btstack_event_state_get_state(packet)) {
         case HCI_STATE_WORKING:
           printf("BTstack up and running on %s.\n", bd_addr_to_str(local_addr));
+          // setup global tlv
+          btstack_tlv_set_instance(&btstack_tlv_impl, NULL);
+
+          hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(&btstack_tlv_impl, NULL));
+          // setup LE Device DB using TLV
+          le_device_db_tlv_configure(&btstack_tlv_impl, NULL);
           break;
         case HCI_STATE_OFF:
-          log_info("Good bye, see you.\n");
+          printf("Good bye, see you.\n");
           break;
         default:
           break;
@@ -619,12 +626,6 @@ void port_thread(void *args)
   /// GET STARTED with BTstack ///
   btstack_memory_init();
   btstack_run_loop_init(btstack_run_loop_freertos_get_instance());
-
-  // setup global tlv
-  btstack_tlv_set_instance(&btstack_tlv_impl, NULL);
-
-  // setup LE Device DB using TLV
-  le_device_db_tlv_configure(&btstack_tlv_impl, NULL);
 
   // init HCI
   hci_init(transport_get_instance(), NULL);
