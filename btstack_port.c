@@ -59,8 +59,8 @@ static QueueHandle_t msg_queue;
 * events,range 2 to 255
 */
 
-#define CONFIG_BT_RX_BUF_COUNT     10
-#define DATA_MSG_CNT               10
+#define CONFIG_BT_RX_BUF_COUNT     4
+#define DATA_MSG_CNT               5
 
 #define CONFIG_ACL_RX_BUF_LEN      1024
 #define CONFIG_EVT_RX_BUF_LEN      (255 + 2 + 3)
@@ -111,7 +111,7 @@ static void transport_send_hardware_error(uint8_t error_code)
   transport_packet_handler(HCI_EVENT_PACKET, &event[0], sizeof(event));
 }
 
-static void bl_packet_to_hci(uint8_t pkt_type, uint16_t src_id, uint8_t *param, uint8_t param_len, const uint8_t *buf)
+static void bl_packet_to_host(uint8_t pkt_type, uint16_t src_id, uint8_t *param, uint8_t param_len, const uint8_t *buf)
 {
   uint16_t tlt_len;
   bool prio = true;
@@ -241,7 +241,7 @@ static void transport_deliver_hci_packets(void)
         taskENTER_CRITICAL();
         tmp_buf = btstack_memory_pool_get(&acl_rx_pool_handle);
         taskEXIT_CRITICAL();
-        bl_packet_to_hci(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
+        bl_packet_to_host(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
         taskENTER_CRITICAL();
         btstack_memory_pool_free(&acl_rx_pool_handle, tmp_buf);
         btstack_memory_pool_free(&acl_rx_pool_handle, msg.param);
@@ -251,7 +251,7 @@ static void transport_deliver_hci_packets(void)
         taskENTER_CRITICAL();
         tmp_buf = btstack_memory_pool_get(&evt_rx_pool_handle);
         taskEXIT_CRITICAL();
-        bl_packet_to_hci(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
+        bl_packet_to_host(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
         taskENTER_CRITICAL();
         btstack_memory_pool_free(&evt_rx_pool_handle, tmp_buf);
         btstack_memory_pool_free(&evt_rx_pool_handle, msg.param);
@@ -544,14 +544,25 @@ void btstack_stdin_reset(void)
 {
 
 }
-
+static void settings_erase();
 void btstack_cmd(int args, char **argv)
 {
-  if (args >= 2) {
-    if (btstack_stdin_handler) {
-      btstack_stdin_handler(argv[1][0]);
+  if (args < 2) {
+    return;
+  }
+
+  if (strlen(argv[1]) > 1) {
+    if (strcmp(argv[1], "erase") == 0) {
+      settings_erase();
+      return;
     }
   }
+
+  if (!btstack_stdin_handler) {
+    return;
+  }
+
+  btstack_stdin_handler(argv[1][0]);
 }
 SHELL_CMD_EXPORT_ALIAS(btstack_cmd, btstack, btstack);
 
@@ -610,7 +621,13 @@ static void settings_delete(void *context, uint32_t tag)
   ef_del_env(key);
   return;
 }
-
+static void settings_erase()
+{
+  //like bflb_mtd_erase_all
+  if (ef_port_erase(0, 32768) == 0) {
+    printf("erase success\n");
+  }
+}
 static const btstack_tlv_t btstack_tlv_impl = {
   .get_tag = &bt_settings_get_bin,
   .store_tag = &bt_settings_set_bin,
