@@ -10,6 +10,7 @@
 #include "bl616_glb.h"
 #include "bflb_mtd.h"
 
+#include "a2dp_decoder.h"
 
 
 static int btblecontroller_em_config(void)
@@ -76,9 +77,11 @@ int main(void)
   bflb_mtd_init();
   easyflash_init();
 
+  create_decoder_thread();
+
 
   //xTaskCreate(port_thread, "btstack_thread", 2048, NULL, configMAX_PRIORITIES - 4, &hbtstack_task);
-  xTaskCreate(port_thread, "btstack_thread", 2048, NULL, 1, &hbtstack_task);
+  xTaskCreate(port_thread, "btstack_thread", 1024 * 16, NULL, 1, &hbtstack_task);
 
   vTaskStartScheduler();
   //port_thread(NULL);
