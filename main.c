@@ -11,7 +11,7 @@
 #include "bflb_mtd.h"
 
 #include "a2dp_decoder.h"
-
+#include "gpio_config.h"
 
 static int btblecontroller_em_config(void)
 {
@@ -40,8 +40,7 @@ TaskHandle_t hbtstack_task;
   */
 static struct bflb_device_s *gpio = NULL;
 static struct bflb_device_s *uart0;
-#define PIN_JTAG_TDO GPIO_PIN_14
-#define PIN_JTAG_TDI GPIO_PIN_19
+
 
 
 void port_thread(void *args);

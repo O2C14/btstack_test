@@ -1,1 +1,4 @@
-# btstack_test
+# btstack_a2dp_player
+目前还是个半成品
+存在的问题:音频流在i2s启动后可能不同步
+i2s运行一段时间后会直接无声,现象为0x2000c020处的寄存器会一直收到中断请求,但是0x2000ab88处的数据没有任何改变.i2s_data引脚的LED灯也没有变化,执行i2s clear i2s reset i2s start后依然无声.

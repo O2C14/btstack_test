@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "gpio_config.h"
 // #include "1k_sin.h"
 
 static struct bflb_device_s *i2s0;
@@ -20,11 +21,7 @@ static struct bflb_dma_channel_lli_transfer_s tx_transfers[1];
 // 2 channel, 16ms
 ATTR_NOCACHE_RAM_SECTION __ALIGNED(32) uint8_t pcm_buffer[MAX_PCM_BUFFER_SIZE];
 __ALIGNED(32) uint8_t tmp_pcm_buffer[TEMP_PCM_BUFFER_MAX_SIZE];
-#define I2S_LRCK_PIN GPIO_PIN_13
-#define I2S_DO_PIN   GPIO_PIN_15
-#define I2S_BCLK_PIN GPIO_PIN_20
-#define I2C0_SCL     GPIO_PIN_26
-#define I2C0_SDA     GPIO_PIN_29
+
 static struct bflb_i2s_config_s i2s_cfg = {
   .bclk_freq_hz =
       48000 * 16 * 2, /* bclk = Sampling_rate * frame_width * channel_num */
