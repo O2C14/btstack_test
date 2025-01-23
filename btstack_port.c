@@ -75,9 +75,9 @@ static QueueHandle_t msg_queue;
 extern void ble_controller_notify_adv_discarded(uint8_t *adv_bd_addr, uint8_t adv_type);
 #endif
 
-static ATTR_PSRAM_SECTION __ALIGNED(4) uint8_t acl_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_ACL_RX_BUF_LEN];
+static __ALIGNED(4) uint8_t acl_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_ACL_RX_BUF_LEN];
 static btstack_memory_pool_t acl_rx_pool_handle;
-static ATTR_PSRAM_SECTION __ALIGNED(4) uint8_t evt_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_EVT_RX_BUF_LEN];
+static __ALIGNED(4) uint8_t evt_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_EVT_RX_BUF_LEN];
 static btstack_memory_pool_t evt_rx_pool_handle;
 #define BT_HCI_EVT_CC_PARAM_OFFSET       0x05
 #define BT_HCI_CCEVT_HDR_PARLEN          0x03
