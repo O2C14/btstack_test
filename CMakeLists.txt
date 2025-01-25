@@ -7,8 +7,10 @@ find_package(bouffalo_sdk REQUIRED HINTS $ENV{BL_SDK_BASE})
 sdk_set_main_file(main.c)
 sdk_add_include_directories(.)
 sdk_add_include_directories(./btblecontroller/btble_inc)
-sdk_add_static_library(btblecontroller/lib/libbtblecontroller_bl616_ble1m0s1sbredr1.a)
-
+#sdk_add_static_library(btblecontroller/lib/libbtblecontroller_bl616_ble1m0s1sbredr1.a)
+sdk_add_static_library(btblecontroller/lib/libbtblecontroller_qcc743_ble1m2s1bredr1.a)
+#sdk_add_static_library(btblecontroller/lib/libbtblecontroller_bl616_ble1m0s1sbredr1_new.a)
+#sdk_add_static_library(E:/codec/bouffalo_sdk/components/wireless/bluetooth/btblecontroller/lib/libbtblecontroller_qcc743_ble1m2s1bredr1/patch/libmylib.a)
 SET(BTSTACK_ROOT ${CMAKE_CURRENT_BINARY_DIR}/../btstack)
 sdk_add_include_directories(${BTSTACK_ROOT}/3rd-party/micro-ecc)
 sdk_add_include_directories(${BTSTACK_ROOT}/3rd-party/bluedroid/decoder/include)
@@ -54,8 +56,13 @@ set(SOURCES
 )
 list(SORT SOURCES)
 
-
-set(EXAMPLE "le_streamer_client")
+#gatt_streamer_server
+#le_streamer_client
+#spp_streamer
+#spp_streamer_client
+#spp_and_gatt_streamer
+#spp_and_gatt_counter
+set(EXAMPLE "spp_and_gatt_counter")
 find_package (Python REQUIRED COMPONENTS Interpreter)
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${EXAMPLE}.h
@@ -139,5 +146,7 @@ btstack_port.c
 #选择一个例子
 #Choose an example
 a2dp_sink_demo.c
+libqcc743_on_bl616.c
+
 #${BTSTACK_ROOT}/example/${EXAMPLE}.c
 )

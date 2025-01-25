@@ -165,7 +165,8 @@ static void bl_packet_to_host(uint8_t pkt_type, uint16_t src_id, uint8_t *param,
       break;
     }
     case BT_HCI_ACL_DATA: {
-      tlt_len = bt_onchiphci_hanlde_rx_acl(param, buf_data);
+      //////////bt_onchiphci_handle_rx_acl
+      tlt_len = bt_onchiphci_handle_rx_acl(param, buf_data);
       if (tlt_len > CONFIG_ACL_RX_BUF_LEN) {
         printf("acl pkg is too big\r\n");
       }
@@ -647,7 +648,7 @@ static void settings_erase()
   if (ef_port_erase(0, 32768) == 0) {
     printf("erase success\n");
   }
-}/**/
+}
 void printf_hexdump(const void *data, int size)
 {
   return;

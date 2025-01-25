@@ -135,7 +135,7 @@ void init_dec_endpoint()
   btstack_assert(sbc_endpoint != NULL);
   sbc_seid = avdtp_local_seid(sbc_endpoint);
   SetISCBySeid(sbc_seid, A2DP_GetDecoderInterfaceSbc(), &a2dp_sbc_sink_cfg);
-
+  /*
   avdtp_stream_endpoint_t *aac_endpoint =
       a2dp_sink_create_stream_endpoint(AVDTP_AUDIO,
                                        AVDTP_CODEC_MPEG_2_4_AAC,
@@ -146,7 +146,7 @@ void init_dec_endpoint()
   btstack_assert(aac_endpoint != NULL);
   aac_seid = avdtp_local_seid(aac_endpoint);
   SetISCBySeid(aac_seid, A2DP_GetDecoderInterfaceAac(), &a2dp_aac_sink_cfg);
-  /*
+  
   avdtp_stream_endpoint_t *aptxhd_endpoint =
       a2dp_sink_create_stream_endpoint(AVDTP_AUDIO,
                                        AVDTP_CODEC_NON_A2DP,
