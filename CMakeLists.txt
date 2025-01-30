@@ -62,7 +62,7 @@ list(SORT SOURCES)
 #spp_streamer_client
 #spp_and_gatt_streamer
 #spp_and_gatt_counter
-set(EXAMPLE "spp_and_gatt_counter")
+set(EXAMPLE "spp_streamer")
 find_package (Python REQUIRED COMPONENTS Interpreter)
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${EXAMPLE}.h
@@ -96,26 +96,34 @@ sdk_add_include_directories(
     codecs/LHDC
     codecs/LHDC/inc
 )
-
-
-list(APPEND SOURCES
+set(APP_SOURCES
+es9038q2m.c
+codecs/pcm_bridge.c
+a2dp_decoder.c
+a2dp_encoder.c
+a2dp_sink_demo.c
+)
+set(NOP_SOURCES
+a2dp_sink_demo.c
+)
+list(APPEND APP_SOURCES
 codecs/AAC/aac_decoder.c
 )
-list(APPEND SOURCES
+list(APPEND NOP_SOURCES
 codecs/APTX/aptx_decoder.c
 codecs/APTX/freeaptx.c
 )
-list(APPEND SOURCES
+list(APPEND APP_SOURCES
 codecs/LDAC/ldac_decoder.c
 codecs/LDAC/src/ldacBT.c
 codecs/LDAC/src/ldaclib.c
 )
 file(GLOB SOURCES_LC3_GOOGLE "./codecs/LC3/liblc3-1.1.1/src/*.c")
-list(APPEND SOURCES
+list(APPEND NOP_SOURCES
 ${SOURCES_LC3_GOOGLE}
 codecs/LC3/lc3plus_decoder.c
 )
-list(APPEND SOURCES
+list(APPEND NOP_SOURCES
 codecs/LHDC/src/Arc.o.c
 codecs/LHDC/src/cirbuf.o.c
 codecs/LHDC/src/dec.o.c
@@ -128,24 +136,20 @@ codecs/LHDC/src/licdecrypt.o.c
 codecs/LHDC/src/lzh_dec.o.c
 codecs/LHDC/lhdc_decoder.c
 )
-list(APPEND SOURCES
+list(APPEND APP_SOURCES
 codecs/SBC/sbc_decoder.c
 codecs/SBC/sbc-2.0/sbc/sbc.c
-codecs/pcm_bridge.c
-a2dp_decoder.c
-a2dp_encoder.c
+
 )
 project(btstack_test)#这个影响了sdk_add_static_library的执行,在这之后执行sdk_add_static_library都是无效的
 
 target_sources(app PRIVATE 
 ${SOURCES}
-
-es9038q2m.c
-
+${APP_SOURCES}
 btstack_port.c
 #选择一个例子
 #Choose an example
-a2dp_sink_demo.c
+#
 libqcc743_on_bl616.c
 
 #${BTSTACK_ROOT}/example/${EXAMPLE}.c

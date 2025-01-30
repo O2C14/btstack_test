@@ -212,10 +212,10 @@ void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_
       i2s_cfg.frame_width = I2S_SLOT_WIDTH_16;
       i2s_cfg.data_width = I2S_SLOT_WIDTH_16;
       if (Used_DMA_BURST) {
-        i2s_cfg.tx_fifo_threshold = 8 - 1;
-        i2s_cfg.rx_fifo_threshold = 8 - 1;
-        tx_config.src_burst_count = DMA_BURST_INCR8;
-        tx_config.dst_burst_count = DMA_BURST_INCR8;
+        i2s_cfg.tx_fifo_threshold = 2 - 1;
+        i2s_cfg.rx_fifo_threshold = 2 - 1;
+        tx_config.src_burst_count = DMA_BURST_INCR1;
+        tx_config.dst_burst_count = DMA_BURST_INCR1;
         tx_config.src_width = DMA_DATA_WIDTH_16BIT;
         tx_config.dst_width = DMA_DATA_WIDTH_16BIT;
       }
@@ -223,10 +223,10 @@ void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_
       i2s_cfg.frame_width = I2S_SLOT_WIDTH_32;
       i2s_cfg.data_width = I2S_SLOT_WIDTH_32;
       if (Used_DMA_BURST) {
-        i2s_cfg.tx_fifo_threshold = 4 - 1;
-        i2s_cfg.rx_fifo_threshold = 4 - 1;
-        tx_config.src_burst_count = DMA_BURST_INCR4;
-        tx_config.dst_burst_count = DMA_BURST_INCR4;
+        i2s_cfg.tx_fifo_threshold = 16 - 1;
+        i2s_cfg.rx_fifo_threshold = 16 - 1;
+        tx_config.src_burst_count = DMA_BURST_INCR1;
+        tx_config.dst_burst_count = DMA_BURST_INCR1;
         tx_config.src_width = DMA_DATA_WIDTH_32BIT;
         tx_config.dst_width = DMA_DATA_WIDTH_32BIT;
       }

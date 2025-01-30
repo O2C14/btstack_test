@@ -320,6 +320,17 @@ static void transport_init(const void *transport_config)
   btstack_run_loop_set_data_source_handler(&transport_data_source, &transport_process);
   btstack_run_loop_enable_data_source_callbacks(&transport_data_source, DATA_SOURCE_CALLBACK_POLL);
   btstack_run_loop_add_data_source(&transport_data_source);
+  uint8_t feats[8];
+  llm_le_features_get(feats);
+  printf("le_features %X %X %X %X %X %X %X %X\n",
+  feats[0],
+  feats[1],
+  feats[2],
+  feats[3],
+  feats[4],
+  feats[5],
+  feats[6],
+  feats[7]);
 }
 
 /**
