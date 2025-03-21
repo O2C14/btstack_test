@@ -1,6 +1,6 @@
 #ifndef LC3PLUS_DECODER_H
 #define LC3PLUS_DECODER_H
-#include "a2dp_codec_api.h"
+#include "a2dp_decoder.h"
 #include <stdint.h>
 // LC3plus codec specific settings
 #define A2DP_LC3PLUS_CODEC_LEN            10

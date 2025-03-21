@@ -1,7 +1,7 @@
 #ifndef AAC_DECODER_H
 #define AAC_DECODER_H
 #include <stdint.h>
-#include "a2dp_codec_api.h"
+#include "a2dp_decoder.h"
 
 // AAC codec specific settings
 #define A2DP_AAC_CODEC_LEN 8

@@ -8,7 +8,7 @@
 #include "btstack/3rd-party/bluedroid/decoder/include/oi_codec_sbc.h"
 
 //#include <statis.h>
-#include "a2dp_codec_api.h"
+#include "a2dp_decoder.h"
 #ifdef BIT
 #undef BIT
 #define BIT(n) (1UL << (n))

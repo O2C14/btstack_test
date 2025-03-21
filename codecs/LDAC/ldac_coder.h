@@ -1,6 +1,6 @@
 #ifndef LDAC_DECODER_H
 #define LDAC_DECODER_H
-#include "a2dp_codec_api.h"
+#include "a2dp_decoder.h"
 #include <stdint.h>
 // LDAC codec specific settings
 #define A2DP_LDAC_CODEC_LEN            10

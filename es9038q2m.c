@@ -16,13 +16,15 @@ static union All_Registers_bits Regp;
 *******************************************************************************/
 void es9038q2m_I2C_Init(void)
 {
+  /**/
   i2c0 = bflb_device_get_by_name("i2c0");
   if (i2c0 == NULL) {
     printf("I2C_Init_fail\r\n");
-    return -1;
+    return;
   }
   bflb_i2c_init(i2c0, 400000);
-  return 0;
+  
+  return;
 }
 void print_regsiter(uint8_t data)
 {

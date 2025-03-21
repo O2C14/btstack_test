@@ -16,10 +16,10 @@ extern uint8_t pcm_buffer[];
 extern uint8_t tmp_pcm_buffer[];
 extern int32_t pcm_data_index;
 extern int32_t CURRENT_USED_BYTES;
-void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_num);
+void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_num,uint32_t buffer_size);
 int pcm_write(const uint8_t *buf, uint32_t size);
 
-bool get_i2s_status(void);
+bool get_dma_status(void);
 bool i2s_start(void);
 int i2s_stop(void);
 

@@ -12,7 +12,7 @@
 
 #include "a2dp_decoder.h"
 #include "gpio_config.h"
-
+#include "easyflash.h"
 static int btblecontroller_em_config(void)
 {
   extern uint8_t __LD_CONFIG_EM_SEL;
@@ -51,6 +51,7 @@ int main(void)
   board_init();
   gpio = bflb_device_get_by_name("gpio");
   uart0 = bflb_device_get_by_name("uart0");
+  void shell_init_with_task(struct bflb_device_s *shell);
   shell_init_with_task(uart0);
 
   /*
@@ -75,9 +76,6 @@ int main(void)
   /* For bt status save */
   bflb_mtd_init();
   easyflash_init();
-
-  create_decoder_thread();
-
 
   //xTaskCreate(port_thread, "btstack_thread", 2048, NULL, configMAX_PRIORITIES - 4, &hbtstack_task);
   xTaskCreate(port_thread, "btstack_thread", 1024 * 16, NULL, 1, &hbtstack_task);
