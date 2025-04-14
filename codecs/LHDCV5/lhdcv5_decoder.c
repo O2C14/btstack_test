@@ -14,7 +14,8 @@ static bool a2dp_lhdcv5_decoder_decode_packet(void *lhdcBT_dec_handle, uint16_t 
     uint32_t lhdc_total_frame_nb = *packet >> 2;
     uint32_t check_size = 2;
     for (int i = 0; i < lhdc_total_frame_nb && check_size < size; i++) {
-        set_start_loc(0);
+        set_start_loc(10*(48000 * MAX_CHANNELS * sizeof(int16_t) * LHDCV5BT_FRAME_DUR_5MS)/(1000*10));
+        // set_start_loc(0);
         uint32_t size_per_ch = *(uint16_t *)(packet + check_size) & 0b1111111111;
         lhdc_v5_dec_decode(get_pcm_tail(), packet + check_size, &out_pcm_szie, lhdcBT_dec_handle);
         check_size += size_per_ch * MAX_CHANNELS + sizeof(uint16_t);

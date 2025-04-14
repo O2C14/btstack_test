@@ -18,8 +18,8 @@
 static struct bflb_device_s *i2s0;
 static struct bflb_device_s *gpio;
 struct bflb_device_s *dma0_ch0;
-static struct bflb_dma_channel_lli_pool_s tx_llipool[4];
-static struct bflb_dma_channel_lli_transfer_s tx_transfers[1];
+static struct bflb_dma_channel_lli_pool_s tx_llipool[40];
+static struct bflb_dma_channel_lli_transfer_s tx_transfers[20];
 // 2 channel, 16ms
 ATTR_NOCACHE_RAM_SECTION uint8_t pcm_buffer[MAX_PCM_BUFFER_SIZE];
 uint8_t tmp_pcm_buffer[TEMP_PCM_BUFFER_MAX_SIZE];
@@ -47,52 +47,7 @@ static struct bflb_dma_channel_config_s dma0_ch0_config = {
     .src_width = DMA_DATA_WIDTH_16BIT,
     .dst_width = DMA_DATA_WIDTH_16BIT, // should equal to i2s frame width
 };
-#if 0
-static ATTR_NOCACHE_RAM_SECTION __ALIGNED(4) uint8_t tx_buffer[38400] = { 0 };
-typedef double SCALAR;
-int sin_signle_generator(const SCALAR target_freq, const SCALAR sample_rate, uint8_t bits)
-{
-  uint32_t i = 0;
-  const SCALAR _16bitmax = (SCALAR)(0x7FFF);
-  const SCALAR _24bitmax = (SCALAR)(0x7FFFFF);
-  const SCALAR _32bitmax = (SCALAR)(0x7FFFFFFF);
-  const SCALAR aPI = 3.141592653589793238462643383279502884193993;
-  SCALAR lenth = 0.;
-  for (i = 0; (i < (uint32_t)sample_rate) && (lenth < 0.05); i++) { // 0.050000000000000003
-    lenth = (1. / target_freq) * i;
-  }
-  // printf("%lf, \n",sin(1114.2));
-  for (i = 0; i < (uint32_t)(lenth * sample_rate); i++) {
-    // printf("%lf, ",sin((target_freq/sample_rate) *2.*aPI* i));
-    SCALAR point = sin((target_freq / sample_rate) * 2. * aPI * i);
-    switch (bits) {
-      case 16:
-        point *= _16bitmax;
-        ((int16_t *)tx_buffer)[i * 2 + 0] = (int16_t)(point);
-        ((int16_t *)tx_buffer)[i * 2 + 1] = (int16_t)(point);
-        break;
-      case 24:
-        point *= _24bitmax;
-        int32_t tmp = (int32_t)(point);
-        ((uint8_t *)tx_buffer)[i * 6 + 0] = (uint8_t *)(&tmp)[0];
-        ((uint8_t *)tx_buffer)[i * 6 + 1] = (uint8_t *)(&tmp)[1];
-        ((uint8_t *)tx_buffer)[i * 6 + 2] = (uint8_t *)(&tmp)[2];
-        ((uint8_t *)tx_buffer)[i * 6 + 3] = (uint8_t *)(&tmp)[0];
-        ((uint8_t *)tx_buffer)[i * 6 + 4] = (uint8_t *)(&tmp)[1];
-        ((uint8_t *)tx_buffer)[i * 6 + 5] = (uint8_t *)(&tmp)[2];
-        break;
-      case 32:
-        point *= _32bitmax;
-        ((int32_t *)tx_buffer)[i * 2 + 0] = (int32_t)(point);
-        ((int32_t *)tx_buffer)[i * 2 + 1] = (int32_t)(point);
-        break;
-      default:
-        break;
-    }
-  }
-  return i * (bits >> 3) * 2;
-}
-#endif
+
 static void dma0_transfer_done(void *arg);
 static void i2s_dma_init()
 {
@@ -108,10 +63,10 @@ static void i2s_dma_init()
     /*register i2s callback*/
     bflb_dma_channel_irq_attach(dma0_ch0, dma0_transfer_done, NULL);
     /*
-  tx_transfers[0].dst_addr = (uint32_t)DMA_ADDR_I2S_TDR;
-  tx_transfers[0].src_addr = (uint32_t)tx_buffer;
-  tx_transfers[0].nbytes = sin_generator(1000., (SCALAR)48000, 32);
-  */
+    tx_transfers[0].dst_addr = (uint32_t)DMA_ADDR_I2S_TDR;
+    tx_transfers[0].src_addr = (uint32_t)tx_buffer;
+    tx_transfers[0].nbytes = sin_generator(1000., (SCALAR)48000, 32);
+  
     printf("dma lli init\r\n");
     uint32_t num = bflb_dma_channel_lli_reload(
         dma0_ch0,
@@ -120,8 +75,10 @@ static void i2s_dma_init()
     bflb_dma_channel_lli_link_head(dma0_ch0, tx_llipool, num);
     // 这是连续循环模式
     printf("tx dma lli num: %d \r\n", num);
-    //bflb_dma_channel_start(dma0_ch0);
+    */
+    // bflb_dma_channel_start(dma0_ch0);
 }
+
 static void dac_gpio_init(void)
 {
     gpio = bflb_device_get_by_name("gpio");
@@ -180,18 +137,17 @@ static void seti2sclock(uint32_t sample_rate, uint32_t data_width)
     GLB_Set_Chip_Clock_Out3_Sel(GLB_CHIP_CLK_OUT_3_I2S_REF_CLK);
 }
 
-// extern void es9038q2m_init(void);
-
 uint32_t current_sample_rate = 44100;
 uint32_t current_data_width = 16;
 double size_per_ms = 0.;
 uint8_t pcm_inited = 0;
-int32_t CURRENT_USED_BYTES = 0;
+int32_t cur_base_buffer_size = 0;
+int32_t cur_buffer_num = 0;
 uint8_t dma_backup_flag = 0;
 uint8_t i2s_backup_flag = 0;
 
 int32_t LastTransferSize = 0;
-void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_num,uint32_t buffer_size)
+void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_num, uint32_t base_buffer_size, uint32_t buffer_num)
 {
     if ((pcm_inited == 0) || (current_sample_rate != sample_rate) ||
         (current_data_width != data_width)) {
@@ -213,6 +169,7 @@ void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_
         // set i2s and dma config
         i2s0_config.bclk_freq_hz = sample_rate * data_width * sound_channel_num;
         printf("samplerate:%d data_width:%d channel:%d\r\n", sample_rate, data_width, sound_channel_num);
+        printf("base_buffer_size:%d buffer_num:%d \r\n", base_buffer_size, buffer_num);
         i2s0_config.tx_fifo_threshold = 16 - 1;
         i2s0_config.rx_fifo_threshold = 16 - 1;
         const bool Used_DMA_BURST = true; //打开这个可能会导致突然无声
@@ -242,16 +199,19 @@ void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_
             printf("data_width error\n");
         }
         size_per_ms = (((double)sample_rate) / 1000.) * (((double)data_width) / 8.) * 2.;
-        CURRENT_USED_BYTES = buffer_size;
-        if (CURRENT_USED_BYTES > sizeof(pcm_buffer)) {
-            printf("i2s buffer size %d bigger than %d\n", CURRENT_USED_BYTES, sizeof(pcm_buffer));
-            CURRENT_USED_BYTES = sizeof(pcm_buffer);
-        } else {
-            printf("i2s buffer size %d\n", CURRENT_USED_BYTES);
+        cur_base_buffer_size = base_buffer_size;
+        cur_buffer_num = buffer_num;
+        if (base_buffer_size * buffer_num > sizeof(pcm_buffer)) {
+            printf("i2s buffer size %d bigger than %d\n", cur_base_buffer_size, sizeof(pcm_buffer));
+            return;
         }
-        tx_transfers[0].src_addr = (uint32_t)pcm_buffer;
-        tx_transfers[0].dst_addr = (uint32_t)DMA_ADDR_I2S_TDR;
-        tx_transfers[0].nbytes = (uint32_t)CURRENT_USED_BYTES; // 实际用的
+        printf("i2s buffer size %d\n", base_buffer_size * buffer_num);
+
+        for (int i = 0; i < buffer_num; i++) {
+            tx_transfers[i].src_addr = (uint32_t)pcm_buffer + i * base_buffer_size;
+            tx_transfers[i].dst_addr = (uint32_t)DMA_ADDR_I2S_TDR;
+            tx_transfers[i].nbytes = (uint32_t)base_buffer_size; // 实际用的
+        }
 
         i2s_dma_init();
 
@@ -272,6 +232,8 @@ static uint64_t use_tick()
     uint64_t tmp = 0;
     if (last_tick) {
         tmp = now - last_tick;
+    } else {
+        return 1;
     }
     last_tick = now;
     return tmp;
@@ -279,11 +241,14 @@ static uint64_t use_tick()
 int64_t writen_count = 0;
 static void dma0_transfer_done(void *arg)
 {
-    writen_count -= (int64_t)CURRENT_USED_BYTES;
+    writen_count -= (int64_t)cur_base_buffer_size;
     if (writen_count < 0) {
-        i2s_stop();           //重新同步
-        printf("Underrun\n"); //欠载
-                              //或者不停止,让 pcm_data_index 指向缓冲区头部
+        i2s_stop();            // 重新同步
+        printf("underload\n"); // 欠载
+    }
+    if (writen_count > cur_base_buffer_size * (cur_buffer_num - 1)) {
+        i2s_stop();           // 重新同步
+        printf("overload\n"); // 过载
     }
     if (*((uint8_t *)(0x2000c00c)) != 0) {
         printf("dma error %d\n", *((uint8_t *)(0x2000c00c)));
@@ -302,10 +267,10 @@ void set_start_loc(int32_t index)
     reset_index = index;
     if (!get_dma_status()) {
         /*
-    LDAC解决播放卡顿的猜想与解决方案:
-    ACL 流刚建立起来的时候 pcm流的写入速度会稍慢于i2s发送的速度
-    为了防止i2s的发送进度越过写入进度(套圈)可以将pcm流的起始位置放在i2s缓冲区的末尾
-    */
+        LDAC解决播放卡顿的猜想与解决方案:
+        ACL 流刚建立起来的时候 pcm流的写入速度会稍慢于i2s发送的速度
+        为了防止i2s的发送进度越过写入进度(套圈)可以将pcm流的起始位置放在i2s缓冲区的末尾
+        */
 
         for (size_t i = 0; i < reset_index; i += 4) {
             *((uint32_t *)(&pcm_buffer[i])) = 0;
@@ -337,10 +302,10 @@ void check_buffer_edge(uint32_t size)
 {
     writen_count += size;
     pcm_data_index += size;
-    //越界检查
-    if (pcm_data_index >= CURRENT_USED_BYTES) {
-        if (pcm_data_index > CURRENT_USED_BYTES) {
-            memcpy(&pcm_buffer[0], &pcm_buffer[CURRENT_USED_BYTES], pcm_data_index - CURRENT_USED_BYTES);
+    // 越界检查
+    if (pcm_data_index >= cur_base_buffer_size * cur_buffer_num) {
+        if (pcm_data_index > cur_base_buffer_size * cur_buffer_num) {
+            memcpy(&pcm_buffer[0], &pcm_buffer[cur_base_buffer_size * cur_buffer_num], pcm_data_index - cur_base_buffer_size * cur_buffer_num);
         }
         pcm_data_index = 0;
     }
@@ -359,12 +324,13 @@ int pcm_write(const uint8_t *buf, uint32_t size)
     return 1;
 }
 
-static void lli_stop();
+static void dma0_ch0_lli_stop();
+static void dma0_ch0_stop();
 int i2s_stop(void)
 {
-    if (get_dma_status()) {
-        lli_stop();
-    }
+    dma0_ch0_lli_stop();
+    // dma0_ch0_stop();
+
     return 1;
 }
 
@@ -376,7 +342,7 @@ bool i2s_start(void)
     //bflb_i2s_link_txdma(i2s0, true);
     uint32_t num = bflb_dma_channel_lli_reload(
         dma0_ch0, tx_llipool, (sizeof(tx_llipool) / sizeof(tx_llipool[0])),
-        tx_transfers, 1);
+        tx_transfers, cur_buffer_num);
     bflb_dma_channel_lli_link_head(dma0_ch0, tx_llipool, num);
 
     bflb_dma_channel_start(dma0_ch0);
@@ -397,11 +363,17 @@ static void set_i2s_status(bool enable)
         (*(volatile uint32_t *)(uintptr_t)(dma0_ch0->reg_base + (0x10))) &= ~1;
     }
 }
-//断开dma传输循环,让i2s自动停止,确保下一次启动dma时dma的传输指针指向缓冲区开头。
-static void lli_stop()
+// 断开dma传输循环,让i2s自动停止,确保下一次启动dma时dma的传输指针指向缓冲区开头。
+static void dma0_ch0_lli_stop()
 {
-    printf("lli_stop\n");
+    printf("dma0_ch0_lli_stop\n");
     (*(volatile uint32_t *)(uintptr_t)(dma0_ch0->reg_base + (0x08))) = 0;
+}
+// 直接停止
+static void dma0_ch0_stop()
+{
+    printf("dma0_ch0_stop\n");
+    bflb_dma_channel_stop(dma0_ch0);
 }
 static void reset_i2s0(void)
 {
@@ -428,7 +400,7 @@ void i2s_shell(int argc, char **argv)
         if (strcmp(argv[1], "start") == 0) {
             uint32_t num = bflb_dma_channel_lli_reload(
                 dma0_ch0, tx_llipool, (sizeof(tx_llipool) / sizeof(tx_llipool[0])),
-                tx_transfers, 1);
+                tx_transfers, cur_buffer_num);
             bflb_dma_channel_lli_link_head(dma0_ch0, tx_llipool, num);
 
             bflb_dma_channel_start(dma0_ch0);
@@ -436,14 +408,14 @@ void i2s_shell(int argc, char **argv)
             //i2s_stop();
             set_i2s_status(0);
         } else if (strcmp(argv[1], "lli_stop") == 0) {
-            lli_stop();
+            dma0_ch0_lli_stop();
         } else if (strcmp(argv[1], "log") == 0) {
             i2s_log = 1;
         } else if (strcmp(argv[1], "unlog") == 0) {
             i2s_log = 0;
         } else if (strcmp(argv[1], "reset") == 0) {
             pcm_inited = 0;
-            pcm_open(current_sample_rate, current_data_width, 2,CURRENT_USED_BYTES);
+            pcm_open(current_sample_rate, current_data_width, 2, cur_base_buffer_size, cur_buffer_num);
         } else if (strcmp(argv[1], "18db0") == 0) {
             set18dbgain(0);
         } else if (strcmp(argv[1], "18db1") == 0) {

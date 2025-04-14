@@ -242,15 +242,20 @@ void init_decoder(uint8_t cid, uint8_t seid)
     p_dev->codec_handle = handle;
     p_dev->nframes_per_buffer = info.nframes_per_buffer;
     double ms_per_buffer = (double)info.nframes_per_buffer * 1000. / (double)info.sample_rate;
+    int base_size = 1;
+    while (ms_per_buffer * base_size < 10.) {// 至少10ms检查一次
+        base_size++;
+    }
+
     int nbuffer = 1;
-    while (ms_per_buffer * nbuffer < 50.) {
+    while (ms_per_buffer * base_size * nbuffer < 100.) {// 至少100ms的缓冲区
         nbuffer++;
     }
-    double latency_ms = ms_per_buffer * nbuffer;
+    double latency_ms = ms_per_buffer * nbuffer * base_size;
     printf("latency ms:%d\n", (int)latency_ms);
-    int decoded_audio_storage_size = nbuffer * info.nframes_per_buffer * (abs(info.sampleFormat) / 8) * MAX_CHANNELS;
+    int decoded_audio_storage_size = base_size * info.nframes_per_buffer * (abs(info.sampleFormat) / 8) * MAX_CHANNELS;
 
-    pcm_open(info.sample_rate, info.sampleFormat, 2, decoded_audio_storage_size);
+    pcm_open(info.sample_rate, info.sampleFormat, 2, decoded_audio_storage_size, nbuffer);
 }
 
 avdtp_configuration_sbc_t sbc_configuration;
