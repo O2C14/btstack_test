@@ -14,8 +14,8 @@ static bool a2dp_lhdcv5_decoder_decode_packet(void *lhdcBT_dec_handle, uint16_t 
     uint32_t lhdc_total_frame_nb = *packet >> 2;
     uint32_t check_size = 2;
     for (int i = 0; i < lhdc_total_frame_nb && check_size < size; i++) {
-        set_start_loc(10*(48000 * MAX_CHANNELS * sizeof(int16_t) * LHDCV5BT_FRAME_DUR_5MS)/(1000*10));
-        // set_start_loc(0);
+        // 8 * 5 ms
+        set_start_loc(8 * (48000 * MAX_CHANNELS * sizeof(int16_t) * LHDCV5BT_FRAME_DUR_5MS) / (1000 * 10));
         uint32_t size_per_ch = *(uint16_t *)(packet + check_size) & 0b1111111111;
         lhdc_v5_dec_decode(get_pcm_tail(), packet + check_size, &out_pcm_szie, lhdcBT_dec_handle);
         check_size += size_per_ch * MAX_CHANNELS + sizeof(uint16_t);
@@ -36,10 +36,10 @@ static void *a2dp_lhdcv5_decoder_configure(const tA2DP_LHDCv5_CIE *codec_cfg, pc
 {
     printf("lhdcv5\n");
     if (codec_cfg->vendorId != A2DP_LHDC_VENDOR_ID) {
-        printf("lhdcv5 LHDC_VENDOR_ID error %x\n",codec_cfg->vendorId);
+        printf("lhdcv5 LHDC_VENDOR_ID error %x\n", codec_cfg->vendorId);
     }
     if (codec_cfg->codecId != A2DP_LHDCV5_CODEC_ID) {
-        printf("lhdcv5 LHDCV5_CODEC_ID error %x\n",codec_cfg->codecId);
+        printf("lhdcv5 LHDCV5_CODEC_ID error %x\n", codec_cfg->codecId);
     }
     switch (codec_cfg->config[0] & A2DP_LHDCV5_SAMPLING_FREQ_MASK) {
         case A2DP_LHDCV5_SAMPLING_FREQ_44100:

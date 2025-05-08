@@ -13,7 +13,7 @@
 
 #include "codecs/APTX/aptx_coder.h"
 #include "codecs/LDAC/ldac_coder.h"
-#include "codecs/LHDC/lhdc_coder.h"
+#include "codecs/LHDCV5/lhdcv5_coder.h"
 #include "codecs/OPUS/opus_coder.h"
 #include "codecs/LC3/lc3plus_coder.h"
 

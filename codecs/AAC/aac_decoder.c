@@ -27,10 +27,11 @@ static bool a2dp_aac_decoder_decode_packet(HANDLE_AACDECODER aac_handle, uint16_
         }
 
         while (true) {
-            //set_start_loc(0);
+            // 2 * 1024 / (sr/1000) ms
+            set_start_loc(1024 * MAX_CHANNELS * sizeof(INT_PCM) * 2);
             err = aacDecoder_DecodeFrame(aac_handle,
-                                         //get_pcm_tail(),
-                                         (INT_PCM *)(tmp_pcm_buffer),
+                                         get_pcm_tail(),
+                                         //(INT_PCM *)(tmp_pcm_buffer),
                                          4096 / sizeof(INT_PCM),
                                          0); // flags
 
@@ -48,14 +49,14 @@ static bool a2dp_aac_decoder_decode_packet(HANDLE_AACDECODER aac_handle, uint16_
                 break;
             }
             out_size = info->frameSize * info->numChannels * sizeof(INT_PCM);
-            pcm_write(tmp_pcm_buffer, out_size);
-            //check_buffer_edge(out_size);
+            // pcm_write(tmp_pcm_buffer, out_size);
+            check_buffer_edge(out_size);
         }
     }
     return true;
 }
 
-static void* a2dp_aac_decoder_decoder_configure(const tA2DP_AAC_CIE *codec_cfg, pcm_info *info_out)
+static void *a2dp_aac_decoder_decoder_configure(const tA2DP_AAC_CIE *codec_cfg, pcm_info *info_out)
 {
     info_out->nframes_per_buffer = 1024;
     HANDLE_AACDECODER aac_handle = aacDecoder_Open(TT_MP4_LATM_MCP1, 1 /* nrOfLayers */);

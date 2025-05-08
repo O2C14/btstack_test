@@ -12,7 +12,7 @@ static bool a2dp_sbc_decode_packet(sbc_t *sbc_context, uint16_t con_handle, uint
     size_t written = 0;
     size_t len = 0;
     while (frame_count--) {
-        set_start_loc(0);
+        set_start_loc(20 * 128 * sizeof(uint16_t) * MAX_CHANNELS);
         len += sbc_decode(&sbc_context,
                           input + len,
                           input_len - len,

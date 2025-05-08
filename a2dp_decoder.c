@@ -158,7 +158,7 @@ void init_dec_endpoint()
     g_decoder[tmp_seid].endpoint = sbc_endpoint;
     g_decoder[tmp_seid].itf = NULL;
     g_decoder[tmp_seid].itf = A2DP_GetDecoderInterfaceSbc();
-    /*
+    
     avdtp_stream_endpoint_t *aac_endpoint =
         a2dp_sink_create_stream_endpoint(AVDTP_AUDIO,
                                         AVDTP_CODEC_MPEG_2_4_AAC,
@@ -171,7 +171,7 @@ void init_dec_endpoint()
     g_decoder[tmp_seid].endpoint = aac_endpoint;
     g_decoder[tmp_seid].itf = NULL;
     g_decoder[tmp_seid].itf = A2DP_GetDecoderInterfaceAac();
-    
+    /*
     avdtp_stream_endpoint_t *aptxhd_endpoint =
         a2dp_sink_create_stream_endpoint(AVDTP_AUDIO,
                                         AVDTP_CODEC_NON_A2DP,
@@ -180,7 +180,7 @@ void init_dec_endpoint()
                                         &a2dp_aptxhd_sink_cfg, 
                                         sizeof(tA2DP_APTXHD_CIE));
     btstack_assert(aptxhd_endpoint != NULL);
-
+    */
     avdtp_stream_endpoint_t *ldac_endpoint =
         a2dp_sink_create_stream_endpoint(AVDTP_AUDIO,
                                          AVDTP_CODEC_NON_A2DP,
@@ -193,7 +193,7 @@ void init_dec_endpoint()
     g_decoder[tmp_seid].endpoint = ldac_endpoint;
     g_decoder[tmp_seid].itf = NULL;
     g_decoder[tmp_seid].itf = A2DP_GetDecoderInterfaceLdac();
-    */
+    
     avdtp_stream_endpoint_t *lhdcv5_endpoint =
         a2dp_sink_create_stream_endpoint(AVDTP_AUDIO,
                                          AVDTP_CODEC_NON_A2DP,

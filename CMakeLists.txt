@@ -76,11 +76,11 @@ message("${Python_EXECUTABLE} ${BTSTACK_ROOT}/tool/compile_gatt.py ${BTSTACK_ROO
 
 sdk_add_include_directories(${CMAKE_CURRENT_BINARY_DIR}/)
 
-
 sdk_add_static_library(codecs/AAC/build/libaac_dec.a)
 #sdk_add_static_library(codecs/AAC/build/libaac_enc.a)
 sdk_add_static_library(codecs/AAC/build/libaac_other.a)
 
+sdk_add_static_library(e:/codec/lhdcv5/rv32/liblhdcv5BT_dec_static.a)
 sdk_add_include_directories(
     codecs
     codecs/SBC
@@ -93,8 +93,6 @@ sdk_add_include_directories(
     codecs/LDAC/inc
     codecs/LC3
     codecs/LC3/liblc3-1.1.1/include
-    codecs/LHDC
-    codecs/LHDC/inc
 )
 set(APP_SOURCES
 es9038q2m.c
@@ -123,23 +121,16 @@ list(APPEND NOP_SOURCES
 ${SOURCES_LC3_GOOGLE}
 codecs/LC3/lc3plus_decoder.c
 )
-list(APPEND NOP_SOURCES
-codecs/LHDC/src/Arc.o.c
-codecs/LHDC/src/cirbuf.o.c
-codecs/LHDC/src/dec.o.c
-codecs/LHDC/src/DecodeUps2xLPF.o.c
-#codecs/LHDC/src/encdec.o.c
-codecs/LHDC/src/fast_upsampling_2x.o.c
-codecs/LHDC/src/lhdcUtil.o.c
-codecs/LHDC/src/lic_check.o.c
-codecs/LHDC/src/licdecrypt.o.c
-codecs/LHDC/src/lzh_dec.o.c
-codecs/LHDC/lhdc_decoder.c
+sdk_add_include_directories(E:/codec/lhdcv5/lhdcv5/liblhdcv5dec/inc)
+sdk_add_include_directories(E:/codec/lhdcv5/lhdcv5/liblhdcv5dec/include)
+sdk_add_include_directories(E:/codec/lhdcv5/lhdcv5/liblhdcv5dec/src/dec/lhdc_v5_dec)
+sdk_add_include_directories(E:/codec/lhdcv5/lhdcv5/liblhdcv5dec/src/dec)
+list(APPEND APP_SOURCES
+codecs/LHDCV5/lhdcv5_decoder.c
 )
 list(APPEND APP_SOURCES
 codecs/SBC/sbc_decoder.c
 codecs/SBC/sbc-2.0/sbc/sbc.c
-
 )
 project(btstack_test)#这个影响了sdk_add_static_library的执行,在这之后执行sdk_add_static_library都是无效的
 

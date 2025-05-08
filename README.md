@@ -20,7 +20,7 @@
 1. 获取解码器每次解码的输出长度, 必须是定值(单位是samples), 也就是`a2dp_decoder.h`中的`nframes_per_buffer`
 2. 计算输出长度对应的时长(单位是ms), 乘以一个整数使其大于10ms(检查间隔), 即`init_decoder`中的`base_size`
 3. 计算最终缓冲区的大小, 注意不要大于`pcm_buffer`
-4. 计算`set_start_loc`的参数, 推荐大小为`nframes_per_buffer`的整数倍, 并使过载缓冲区和欠载缓冲区的大小一样.
+4. 计算`set_start_loc`的参数, 推荐大小为`nframes_per_buffer`的整数倍, 并使过载缓冲区和欠载缓冲区的大小一样.在实际使用中若过载出现次数较多可以适当增加过载缓冲区的大小, 即减小`set_start_loc`的参数.
 
 I2S移植:
 ---

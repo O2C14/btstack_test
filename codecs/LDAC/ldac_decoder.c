@@ -85,7 +85,8 @@ static const char *get_error_code_string(int error_code)
     return a_ErrorCodeStr;
 }
 
-//512 1024
+// 48k 44.1k 88.2k 96k
+// 512       1024
 static bool a2dp_vendor_ldac_decoder_decode_packet(HANDLE_LDAC_BT ldacBT_dec_handle, uint16_t con_handle, uint8_t *packet, uint16_t size)
 {
     const uint8_t frame_number = *packet & 0b1111;
@@ -95,7 +96,8 @@ static bool a2dp_vendor_ldac_decoder_decode_packet(HANDLE_LDAC_BT ldacBT_dec_han
 
     for (int32_t i = 0; i < frame_number; i++) {
         int32_t out_pcm_szie = 0, streamUsed = 0;
-        set_start_loc(0);
+        // 128 / 48
+        set_start_loc(20 * 128 * sizeof(uint16_t) * MAX_CHANNELS);
         //set_start_loc(CURRENT_USED_BYTES - 4096);
 
         int result = ldacBT_decode(ldacBT_dec_handle, &pStream[used_Stream_count],
@@ -122,7 +124,7 @@ static void a2dp_vendor_ldac_decoder_decoder_cleanup(HANDLE_LDAC_BT ldacBT_dec_h
         ldacBT_dec_handle = NULL;
     }
 }
-static void* a2dp_vendor_ldac_decoder_configure(const uint8_t *codec_cfg, pcm_info *info_out)
+static void *a2dp_vendor_ldac_decoder_configure(const uint8_t *codec_cfg, pcm_info *info_out)
 {
     info_out->nframes_per_buffer = 128;
     tA2DP_LDAC_CIE *cfg = codec_cfg;

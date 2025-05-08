@@ -59,7 +59,7 @@ static QueueHandle_t msg_queue;
 * events,range 2 to 255
 */
 
-#define CONFIG_BT_RX_BUF_COUNT     7
+#define CONFIG_BT_RX_BUF_COUNT     15
 #define DATA_MSG_CNT               16
 
 #define CONFIG_ACL_RX_BUF_LEN      1024
@@ -321,7 +321,8 @@ static void transport_init(const void *transport_config)
     btstack_run_loop_enable_data_source_callbacks(&transport_data_source, DATA_SOURCE_CALLBACK_POLL);
     btstack_run_loop_add_data_source(&transport_data_source);
     printf("%x\n", *((uint32_t *)0x28000804));
-    printf("%x\n", *((uint32_t *)0x28000404));
+    printf("%x\n\n", *((uint32_t *)0x28000404));
+    printf("%x\n", *((uint32_t *)0X28000808));
 }
 
 /**

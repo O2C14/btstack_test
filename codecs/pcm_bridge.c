@@ -4,8 +4,6 @@
 #include "bflb_mtimer.h"
 #include "bl616_glb.h"
 #include "es9038q2m.h"
-#include "csi_math.h"
-#include <math.h>
 #include <shell.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -172,7 +170,7 @@ void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_
         printf("base_buffer_size:%d buffer_num:%d \r\n", base_buffer_size, buffer_num);
         i2s0_config.tx_fifo_threshold = 16 - 1;
         i2s0_config.rx_fifo_threshold = 16 - 1;
-        const bool Used_DMA_BURST = true; //打开这个可能会导致突然无声
+        const bool Used_DMA_BURST = true;
         if (data_width == 16) {
             i2s0_config.frame_width = I2S_SLOT_WIDTH_16;
             i2s0_config.data_width = I2S_SLOT_WIDTH_16;
@@ -242,18 +240,31 @@ int64_t writen_count = 0;
 static void dma0_transfer_done(void *arg)
 {
     writen_count -= (int64_t)cur_base_buffer_size;
+    /*
     if (writen_count < 0) {
         i2s_stop();            // 重新同步
         printf("underload\n"); // 欠载
     }
+    if (writen_count < cur_base_buffer_size) {
+        printf("pre underload\n"); // 这样也会听到卡顿?
+    }
+    */
+    if (writen_count <= 0) {   // writen_count == 0 不一定欠载, 但是还是会听到卡顿
+        i2s_stop();            // 重新同步
+        printf("underload\n"); // 欠载
+    }
+
     if (writen_count > cur_base_buffer_size * (cur_buffer_num - 1)) {
         i2s_stop();           // 重新同步
         printf("overload\n"); // 过载
     }
-    if (*((uint8_t *)(0x2000c00c)) != 0) {
-        printf("dma error %d\n", *((uint8_t *)(0x2000c00c)));
-        *((uint8_t *)(0x2000c010)) = *((uint8_t *)(0x2000c00c));
+
+    /*
+    if (writen_count > cur_base_buffer_size * (cur_buffer_num - 2)) {
+        printf("pre overload\n"); // 这样也会听到卡顿?
     }
+    */
+
     if (i2s_log) {
         printf("timeout(ms) %d\n", (int32_t)(((double)(-writen_count)) / size_per_ms));
     }
@@ -307,7 +318,7 @@ void check_buffer_edge(uint32_t size)
         if (pcm_data_index > cur_base_buffer_size * cur_buffer_num) {
             memcpy(&pcm_buffer[0], &pcm_buffer[cur_base_buffer_size * cur_buffer_num], pcm_data_index - cur_base_buffer_size * cur_buffer_num);
         }
-        pcm_data_index = 0;
+        pcm_data_index -= cur_base_buffer_size * cur_buffer_num;
     }
     check_and_start();
 }
@@ -328,8 +339,8 @@ static void dma0_ch0_lli_stop();
 static void dma0_ch0_stop();
 int i2s_stop(void)
 {
-    dma0_ch0_lli_stop();
-    // dma0_ch0_stop();
+    // dma0_ch0_lli_stop();
+    dma0_ch0_stop();
 
     return 1;
 }
@@ -351,9 +362,10 @@ bool i2s_start(void)
 }
 bool get_dma_status(void)
 {
-    //getreg32(channel_base + DMA_CxCONFIG_OFFSET);
-    return (*((uint32_t *)0x2000c01c) & 1); //dma0
-                                            //return !(*((uint32_t *)0x2000AB04)&1);
+    // getreg32(channel_base + DMA_CxCONFIG_OFFSET);
+    // return (*((uint32_t *)0x2000c01c) & 1); // dma0
+    // return !(*((uint32_t *)0x2000AB04) & 1);// i2s
+    return (*(uint32_t *)(dma0_ch0->reg_base + (0x10)) & 1) != 0;
 }
 static void set_i2s_status(bool enable)
 {
