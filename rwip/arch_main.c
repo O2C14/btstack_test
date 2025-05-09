@@ -109,11 +109,8 @@ void rwip_schedule(void);
 void arch_main_loop(void)
 {
     while (1) {
-        if (ke_event_get_all() == 0) {
-            vTaskDelay(1);//refer original lib
-        } else {
-            rwip_schedule();
-        }
+        rwip_schedule();
+        vTaskDelay(1);// refer original lib
     }
 }
 
