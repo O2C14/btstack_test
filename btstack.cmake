@@ -25,7 +25,9 @@ file(GLOB SOURCES_UECC      "${BTSTACK_ROOT}/3rd-party/micro-ecc/uECC.c")#ecc
 file(GLOB SOURCES_RIJNDAEL  "${BTSTACK_ROOT}/3rd-party/rijndael/rijndael.c")#btstack_crypto.c aes
 file(GLOB SOURCES_LC3_GOOGLE "${BTSTACK_ROOT}/3rd-party/lc3-google/src/*.c")
 file(GLOB SOURCES_FREERTOS_PORT "${BTSTACK_ROOT}/platform/freertos/btstack_run_loop_freertos.c")
+if (CONFIG_BTSTACK_LOG)
 file(GLOB SOURCES_HCI_STDOUT "${BTSTACK_ROOT}/platform/embedded/hci_dump_embedded_stdout.c")
+endif()
 file(GLOB SOURCES_BLE_OFF "${BTSTACK_ROOT}/src/ble/le_device_db_memory.c")
 list(REMOVE_ITEM SOURCES_BLE   ${SOURCES_BLE_OFF})
 

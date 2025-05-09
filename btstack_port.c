@@ -512,9 +512,9 @@ extern int btstack_main(int argc, const char *argv[]);
 void port_thread(void *args)
 {
     bt_check_if_ef_ready();
-
+#ifdef CONFIG_BTSTACK_LOG
     hci_dump_init(hci_dump_embedded_stdout_get_instance());
-
+#endif
     /// GET STARTED with BTstack ///
     btstack_memory_init();
     btstack_run_loop_init(btstack_run_loop_freertos_get_instance());
