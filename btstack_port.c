@@ -1,57 +1,51 @@
-#include "bflb_mtimer.h"
 #define BTSTACK_FILE__ "btstack_port.c"
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/errno.h>
+#include <shell.h>
+#include <bl616_glb.h>
+#include <bflb_mtimer.h>
 
-/*******************************************
- *       transport implementation
- ******************************************/
+#include <easyflash.h>
 
-// #define USE_SRAM_FLASH_BANK_EMU
-
-#include "btstack.h"
+#include <FreeRTOSConfig.h>
+#include <FreeRTOS.h>
+#include <task.h>
+#include <semphr.h>
+#include <queue.h>
 
 #include "btstack_config.h"
-#include "btstack_event.h"
-#include "btstack_memory.h"
-#include "btstack_run_loop.h"
-#include "btstack_run_loop_freertos.h"
-#include "btstack_tlv_flash_bank.h"
+#include <btstack.h>
+#include <btstack_tlv.h>
+#include <btstack_event.h>
+#include <btstack_memory.h>
+#include <btstack_run_loop.h>
+#include <btstack_run_loop_freertos.h>
+#include <btstack_tlv_flash_bank.h>
+#include <btstack_debug.h>
+#include <btstack_stdin.h>
 
-#include "hci.h"
-#include "hci_dump_embedded_stdout.h"
-#include "hci_dump.h"
-#include "hal_time_ms.h"
-#include "btstack_debug.h"
-#include "btstack_stdin.h"
+#include <hci.h>
+#include <bluetooth.h>
+#include <hci_dump_embedded_stdout.h>
+#include <hci_dump.h>
+#include <hal_time_ms.h>
+#include <ble/le_device_db_tlv.h>
+#include <classic/btstack_link_key_db_tlv.h>
 
-#include "FreeRTOSConfig.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
-#include "queue.h"
+#include "rw_data_api.h"
 
-#include <sys/errno.h>
-#include "hci_onchip.h"
-#include "bluetooth.h"
-#include <shell.h>
-#include "bl616_glb.h"
-#include "btble_lib_api.h"
-#include "easyflash.h"
-#include "btstack_tlv.h"
-#include "ble/le_device_db_tlv.h"
-#include "classic/btstack_link_key_db_tlv.h"
+static void trigger_shutdown(void);
+
+
 static void (*transport_packet_handler)(uint8_t packet_type, uint8_t *packet, uint16_t size);
-
 struct rx_msg_struct {
     uint8_t pkt_type;
-    uint16_t src_id;
-    uint8_t *param;
-    uint8_t param_len;
-} __packed;
+    uint8_t *bufptr;
+    uint32_t size;
+};
 static QueueHandle_t msg_queue;
 
 /**
@@ -59,174 +53,156 @@ static QueueHandle_t msg_queue;
 * events,range 2 to 255
 */
 
-#define CONFIG_BT_RX_BUF_COUNT     15
-#define DATA_MSG_CNT               16
+#define CONFIG_BT_RX_BUF_COUNT     4
+#define DATA_MSG_CNT               5
 
-#define CONFIG_ACL_RX_BUF_LEN      1024
+#define CONFIG_ACL_RX_BUF_LEN      1024 // 1021 DH5_3
 #define CONFIG_EVT_RX_BUF_LEN      (255 + 2 + 3)
 
-#define CONFIG_BT_HCI_RESERVE      (1)
+#define CONFIG_BT_HCI_RESERVE      1
 #define CONFIG_BT_RX_BUF_RSV_COUNT (1)
 #if (CONFIG_BT_RX_BUF_RSV_COUNT >= CONFIG_BT_RX_BUF_COUNT)
 #error "CONFIG_BT_RX_BUF_RSV_COUNT config error"
 #endif
 
-#if defined(BFLB_BLE_NOTIFY_ADV_DISCARDED)
-extern void ble_controller_notify_adv_discarded(uint8_t *adv_bd_addr, uint8_t adv_type);
-#endif
-//ATTR_NOCACHE_RAM_SECTION
-//ATTR_PSRAM_SECTION
-static __ALIGNED(32) uint8_t acl_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_ACL_RX_BUF_LEN];
-static btstack_memory_pool_t acl_rx_pool_handle;
-static __ALIGNED(32) uint8_t evt_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_EVT_RX_BUF_LEN];
+static __ALIGNED(4) uint8_t acl_sco_iso_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_ACL_RX_BUF_LEN];
+static __ALIGNED(4) uint8_t evt_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_EVT_RX_BUF_LEN];
+static __ALIGNED(4) uint8_t tx_ring_buffer[1024 * 4];
+
+static btstack_memory_pool_t acl_sco_iso_rx_pool_handle;
 static btstack_memory_pool_t evt_rx_pool_handle;
-#define BT_HCI_EVT_CC_PARAM_OFFSET       0x05
-#define BT_HCI_CCEVT_HDR_PARLEN          0x03
-#define BT_HCI_CSEVT_LEN                 0x06
-#define BT_HCI_CSVT_PARLEN               0x04
-#define BT_HCI_EVT_LE_PARAM_OFFSET       0x02
+static btstack_ring_buffer_t tx_ring_buffer_handle;
 
-#define BT_HCI_EVT_CMD_COMPLETE          0x0e
-#define BT_HCI_EVT_CMD_STATUS            0x0f
+static uint8_t hci_can_send_now;
 
-#define BT_HCI_EVT_LE_META_EVENT         0x3e
-#define BT_HCI_EVT_LE_ADVERTISING_REPORT 0x02
-#define BT_HCI_EVT_NUM_COMPLETED_PACKETS 0x13
-
-static uint8_t hci_acl_can_send_now;
 static void transport_notify_packet_send(void)
 {
     // notify upper stack that it might be possible to send again
     uint8_t event[] = { HCI_EVENT_TRANSPORT_PACKET_SENT, 0 };
     transport_packet_handler(HCI_EVENT_PACKET, &event[0], sizeof(event));
+    return;
 }
 static void transport_notify_ready(void)
 {
     // notify upper stack that it transport is ready
     uint8_t event[] = { HCI_EVENT_TRANSPORT_READY, 0 };
     transport_packet_handler(HCI_EVENT_PACKET, &event[0], sizeof(event));
+    return;
 }
 static void transport_send_hardware_error(uint8_t error_code)
 {
     uint8_t event[] = { HCI_EVENT_HARDWARE_ERROR, 1, error_code };
     transport_packet_handler(HCI_EVENT_PACKET, &event[0], sizeof(event));
+    return;
 }
 
-static void bl_packet_to_host(uint8_t pkt_type, uint16_t src_id, uint8_t *param, uint8_t param_len, const uint8_t *buf)
+struct rwip_data {
+    uint8_t *bufptr;
+    uint32_t size;
+    rwip_eif_callback callback;
+    void *dummy;
+    bool controller_underrun;// or standby
+} hci_send_to_controller;
+// The read progress of rwip is always slightly faster than that of btstack
+static void data_from_host(uint8_t *bufptr, uint32_t size, rwip_eif_callback callback, void *dummy)
 {
-    uint16_t tlt_len;
-    const uint8_t nb_h2c_cmd_pkts = 0x01;
-    uint8_t *buf_data = buf;
-    uint8_t to_hci_data_type = 0;
-    //bt_buf_set_rx_adv(buf, false);
+    log_info("%s read %d", __func__, size);
 
-    switch (pkt_type) {
-        case BT_HCI_CMD_CMP_EVT: {
-            tlt_len = BT_HCI_EVT_CC_PARAM_OFFSET + param_len;
-            *buf_data++ = BT_HCI_EVT_CMD_COMPLETE;
-            *buf_data++ = BT_HCI_CCEVT_HDR_PARLEN + param_len;
-            *buf_data++ = nb_h2c_cmd_pkts;
-            *buf_data++ = ((uint8_t *)&src_id)[0];
-            *buf_data++ = ((uint8_t *)&src_id)[1];
+    uint32_t read_bytes = 0;
+    btstack_ring_buffer_read(&tx_ring_buffer_handle, bufptr, size, &read_bytes);
+    if (read_bytes != size) {
+        hci_send_to_controller.bufptr = bufptr + read_bytes;
+        hci_send_to_controller.size = size - read_bytes;
+        hci_send_to_controller.callback = callback;
+        hci_send_to_controller.dummy = dummy;
+        hci_send_to_controller.controller_underrun = 1;
+        return;
+    }
 
-            memcpy(buf_data, param, param_len);
-            to_hci_data_type = HCI_EVENT_PACKET;
-            break;
-        }
-        case BT_HCI_CMD_STAT_EVT: {
-            tlt_len = BT_HCI_CSEVT_LEN;
-            *buf_data++ = BT_HCI_EVT_CMD_STATUS;
-            *buf_data++ = BT_HCI_CSVT_PARLEN;
-            *buf_data++ = *(uint8_t *)param; //STATUS
-            *buf_data++ = nb_h2c_cmd_pkts;
-            *buf_data++ = ((uint8_t *)&src_id)[0];
-            *buf_data++ = ((uint8_t *)&src_id)[1];
-            to_hci_data_type = HCI_EVENT_PACKET;
+    hci_send_to_controller.controller_underrun = 0;
+    hci_send_to_controller.bufptr = 0;
+    hci_send_to_controller.size = 0;
+    hci_send_to_controller.callback = 0;
+    hci_send_to_controller.dummy = 0;
+    callback(dummy, 0);
+    return;
+}
 
+static int transport_send_to_controller(uint8_t packet_type, uint8_t *packet, int size)
+{
+    log_info("%s write %d", __func__, size + sizeof(packet_type));
+    btstack_ring_buffer_write(&tx_ring_buffer_handle, &packet_type, sizeof(packet_type));
+    uint32_t bytes_available = btstack_ring_buffer_write(&tx_ring_buffer_handle, packet, size);
+    if (bytes_available >= sizeof(tx_ring_buffer)) {
+        hci_can_send_now = 0;
+    } else {
+        hci_can_send_now = 1;
+        transport_notify_packet_send();
+    }
+
+    if (hci_send_to_controller.controller_underrun == 1) {
+        data_from_host(
+            hci_send_to_controller.bufptr,
+            hci_send_to_controller.size,
+            hci_send_to_controller.callback,
+            hci_send_to_controller.dummy);
+    }
+
+    return 0;
+}
+static void data_to_host(uint8_t *bufptr, uint32_t size, rwip_eif_callback callback, void *dummy)
+{
+    log_info("%s %d", __func__, size);
+    struct rx_msg_struct rx_msg = {
+        .pkt_type = bufptr[0],
+        .bufptr = 0,
+        .size = size - 1,
+    };
+    switch (rx_msg.pkt_type) {
+        case HCI_EVENT_PACKET: {
+            taskENTER_CRITICAL();
+            rx_msg.bufptr = btstack_memory_pool_get(evt_rx_pool_handle);
+            taskEXIT_CRITICAL();
             break;
         }
-        case BT_HCI_LE_EVT: {
-            if (param[0] == BT_HCI_EVT_LE_ADVERTISING_REPORT) {
-                //bt_buf_set_rx_adv(buf, true);
-            }
-            tlt_len = BT_HCI_EVT_LE_PARAM_OFFSET + param_len;
-            *buf_data++ = BT_HCI_EVT_LE_META_EVENT;
-            *buf_data++ = param_len;
-            memcpy(buf_data, param, param_len);
-            to_hci_data_type = HCI_EVENT_PACKET;
-            break;
-        }
-        case BT_HCI_EVT: {
-            tlt_len = BT_HCI_EVT_LE_PARAM_OFFSET + param_len;
-            *buf_data++ = src_id;
-            *buf_data++ = param_len;
-            memcpy(buf_data, param, param_len);
-            to_hci_data_type = HCI_EVENT_PACKET;
-            break;
-        }
-        case BT_HCI_ACL_DATA: {
-            //////////bt_onchiphci_handle_rx_acl
-            tlt_len = bt_onchiphci_handle_rx_acl(param, buf_data);
-            if (tlt_len > CONFIG_ACL_RX_BUF_LEN) {
-                printf("acl pkg is too big\r\n");
-            }
-            to_hci_data_type = HCI_ACL_DATA_PACKET;
+        case HCI_SCO_DATA_PACKET:
+        case HCI_ISO_DATA_PACKET:
+        case HCI_ACL_DATA_PACKET: {
+            taskENTER_CRITICAL();
+            rx_msg.bufptr = btstack_memory_pool_get(acl_sco_iso_rx_pool_handle);
+            taskEXIT_CRITICAL();
             break;
         }
         default: {
             return;
         }
     }
-    transport_packet_handler(to_hci_data_type, buf, tlt_len);
+    memcpy(rx_msg.bufptr, bufptr + 1, rx_msg.size);
+    static BaseType_t yield = pdFALSE;
+    xQueueSendFromISR(msg_queue, &rx_msg, &yield);
+    btstack_run_loop_poll_data_sources_from_irq();
+    portYIELD_FROM_ISR(yield);
+
+    callback(dummy, 0);
     return;
 }
 
-static void bl_onchiphci_rx_packet_handler(uint8_t pkt_type, uint16_t src_id, uint8_t *param, uint8_t param_len)
+void flow_on()
 {
-    struct net_buf *buf = NULL;
-    bool prio = false;
-    struct rx_msg_struct rx_msg = {
-        .pkt_type = pkt_type,
-        .src_id = src_id,
-        .param_len = param_len,
-    };
-    if (param_len) {
-        switch (pkt_type) {
-            case BT_HCI_CMD_CMP_EVT:
-            case BT_HCI_CMD_STAT_EVT:
-                prio = true;
-            case BT_HCI_LE_EVT:
-            case BT_HCI_EVT: {
-                if (src_id == BT_HCI_EVT_NUM_COMPLETED_PACKETS) {
-                    prio = true;
-                }
-                taskENTER_CRITICAL();
-                rx_msg.param = btstack_memory_pool_get(evt_rx_pool_handle);
-                taskEXIT_CRITICAL();
-                break;
-            }
-            case BT_HCI_ACL_DATA: {
-                taskENTER_CRITICAL();
-                rx_msg.param = btstack_memory_pool_get(acl_rx_pool_handle);
-                taskEXIT_CRITICAL();
-                break;
-            }
-            default: {
-                return;
-            }
-        }
-    }
-
-    memcpy(rx_msg.param, param, param_len);
-    static BaseType_t yield = pdFALSE;
-    if (prio) {
-        xQueueSendToFrontFromISR(msg_queue, &rx_msg, &yield);
-    } else {
-        xQueueSendToBackFromISR(msg_queue, &rx_msg, &yield);
-    }
-    btstack_run_loop_poll_data_sources_from_irq();
-    portYIELD_FROM_ISR(yield);
+    hci_can_send_now = 1;
+    // transport_notify_packet_send();// Cannot be called here
 }
+void flow_off()
+{
+    hci_can_send_now = 0;
+    // trigger_shutdown();
+}
+const struct rwip_eif_api btstack_port_api = {
+    .read = data_from_host,
+    .write = data_to_host,
+    .flow_on = flow_on,
+    .flow_off = flow_off,
+};
 
 uint32_t hal_time_ms(void)
 {
@@ -238,32 +214,23 @@ static btstack_data_source_t transport_data_source;
 
 static void transport_deliver_hci_packets(void)
 {
-    void *tmp_buf = NULL;
     struct rx_msg_struct msg;
 
     while (xQueueReceive(msg_queue, &msg, 0) == pdTRUE) {
-        if (msg.param) {
-            if (msg.pkt_type == BT_HCI_ACL_DATA) {
+        if (msg.bufptr) {
+            if (msg.pkt_type != HCI_EVENT_PACKET) {
+                transport_packet_handler(msg.pkt_type, msg.bufptr, msg.size);
                 taskENTER_CRITICAL();
-                tmp_buf = btstack_memory_pool_get(&acl_rx_pool_handle);
+                btstack_memory_pool_free(&acl_sco_iso_rx_pool_handle, msg.bufptr);
                 taskEXIT_CRITICAL();
-                bl_packet_to_host(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
-                taskENTER_CRITICAL();
-                btstack_memory_pool_free(&acl_rx_pool_handle, tmp_buf);
-                btstack_memory_pool_free(&acl_rx_pool_handle, msg.param);
-                taskEXIT_CRITICAL();
-                tmp_buf = NULL;
+
             } else {
+                transport_packet_handler(msg.pkt_type, msg.bufptr, msg.size);
                 taskENTER_CRITICAL();
-                tmp_buf = btstack_memory_pool_get(&evt_rx_pool_handle);
-                taskEXIT_CRITICAL();
-                bl_packet_to_host(msg.pkt_type, msg.src_id, msg.param, msg.param_len, tmp_buf);
-                taskENTER_CRITICAL();
-                btstack_memory_pool_free(&evt_rx_pool_handle, tmp_buf);
-                btstack_memory_pool_free(&evt_rx_pool_handle, msg.param);
+                btstack_memory_pool_free(&evt_rx_pool_handle, msg.bufptr);
                 taskEXIT_CRITICAL();
             }
-            msg.param = NULL;
+            msg.bufptr = NULL;
         }
     }
 }
@@ -286,10 +253,11 @@ static void transport_process(btstack_data_source_t *ds, btstack_data_source_cal
 static void transport_init(const void *transport_config)
 {
     log_info("transport_init");
-    btble_controller_init(configMAX_PRIORITIES - 1);
 
-    btstack_memory_pool_create(&acl_rx_pool_handle,
-                               acl_rx_pool,
+    btstack_ring_buffer_init(&tx_ring_buffer_handle, tx_ring_buffer, sizeof(tx_ring_buffer));
+
+    btstack_memory_pool_create(&acl_sco_iso_rx_pool_handle,
+                               acl_sco_iso_rx_pool,
                                CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT,
                                CONFIG_ACL_RX_BUF_LEN);
     btstack_memory_pool_create(&evt_rx_pool_handle,
@@ -298,31 +266,12 @@ static void transport_init(const void *transport_config)
                                CONFIG_EVT_RX_BUF_LEN);
     msg_queue = xQueueCreate(DATA_MSG_CNT, sizeof(struct rx_msg_struct));
 
-    bt_onchiphci_interface_init(&bl_onchiphci_rx_packet_handler);
-    /*
-  bl_onchiphci_rx_packet_handler 作为回调在 bt_hcionchip_recv 中调用
-  bt_hcionchip_recv 被分散为 6 个回调放在 hci_onchip_default_state
-  hci_onchip_default_state 的指针放在 TASK_DESC_HCI_ONCHIP 
-  TASK_DESC_HCI_ONCHIP 被 bt_onchiphci_interface_init 作为参数传给 btble_ke_task_create
-  btble_ke_task_create 将参数放入 ke_task_env
-  btble_ke_task_schedule 会调用 ke_task_env 进而调用 bt_hcionchip_recv
-  btble_ke_task_schedule 调用 ke_task_env 的参数来自 btble_co_list_pop_front(btble_ke_env) 的返回
-  btble_ke_task_init 将 btble_ke_task_schedule 作为参数传入 btble_ke_event_callback_set 从而实现调度
-
-  btble_ke_env 被 btble_co_list* 所修改从而实现各个 rwip 模块之间的参数传递
-
-  llm_le_features_get 获取ip核的特性(features)
-  FF CF 01 0C
-  */
-
-    hci_acl_can_send_now = 1;
     // set up polling data_source
     btstack_run_loop_set_data_source_handler(&transport_data_source, &transport_process);
     btstack_run_loop_enable_data_source_callbacks(&transport_data_source, DATA_SOURCE_CALLBACK_POLL);
     btstack_run_loop_add_data_source(&transport_data_source);
-    printf("%x\n", *((uint32_t *)0x28000804));
-    printf("%x\n\n", *((uint32_t *)0x28000404));
-    printf("%x\n", *((uint32_t *)0X28000808));
+
+    btble_controller_init(configMAX_PRIORITIES - 1);
 }
 
 /**
@@ -345,9 +294,6 @@ static int transport_close(void)
 
     while (1) {
         if (xQueueReceive(msg_queue, &msg, 0)) {
-            if (msg.param) {
-                vPortFree(msg.param);
-            }
         } else {
             break;
         }
@@ -372,103 +318,14 @@ static void transport_register_packet_handler(void (*handler)(uint8_t packet_typ
  */
 static int transport_can_send_packet_now(uint8_t packet_type)
 {
-    switch (packet_type) {
-        case HCI_COMMAND_DATA_PACKET:
-            return 1;
-
-        case HCI_ACL_DATA_PACKET:
-            return hci_acl_can_send_now;
-    }
-    return 1;
+    return hci_can_send_now;
 }
-struct bt_hci_cmd_hdr {
-    uint16_t opcode;
-    uint8_t param_len;
-} __packed;
-struct bt_hci_acl_hdr {
-    uint16_t handle;
-    uint16_t len;
-} __packed;
-#define bt_acl_handle(h) ((h) & 0x0fff)
-#define bt_acl_flags(h)  ((h) >> 12)
 
-static int transport_send_packet(uint8_t packet_type, uint8_t *packet, int size)
+static void trigger_shutdown(void)
 {
-    uint8_t pkt_type;
-    uint16_t dest_id = 0x00;
-    hci_pkt_struct pkt;
-    if (size > CONFIG_ACL_RX_BUF_LEN) {
-        printf("acl pkg is too big\n");
-    }
-    switch (packet_type) {
-        case HCI_COMMAND_DATA_PACKET:
-            pkt_type = BT_HCI_CMD;
-            if (size < sizeof(struct bt_hci_cmd_hdr)) {
-                break;
-            }
-            struct bt_hci_cmd_hdr *chdr = packet;
-            if (size < chdr->param_len) {
-                break;
-            }
-            switch (chdr->opcode) {
-                //ble refer to hci_cmd_desc_tab_le, for the ones of which dest_ll is BLE_CTRL
-                case HCI_OPCODE_HCI_LE_CONNECTION_UPDATE:
-                case HCI_OPCODE_HCI_LE_READ_CHANNEL_MAP:
-                case HCI_OPCODE_HCI_LE_READ_REMOTE_USED_FEATURES:
-                case HCI_OPCODE_HCI_LE_START_ENCRYPTION:
-                case HCI_OPCODE_HCI_LE_LONG_TERM_KEY_REQUEST_REPLY:
-                case HCI_OPCODE_HCI_LE_LONG_TERM_KEY_NEGATIVE_REPLY:
-                case HCI_OPCODE_HCI_LE_REMOTE_CONNECTION_PARAMETER_REQUEST_REPLY:
-                case HCI_OPCODE_HCI_LE_REMOTE_CONNECTION_PARAMETER_REQUEST_NEGATIVE_REPLY:
-                case HCI_OPCODE_HCI_LE_SET_DATA_LENGTH:
-                case HCI_OPCODE_HCI_LE_READ_PHY:
-                case HCI_OPCODE_HCI_LE_SET_PHY:
-                //bredr identify link id, according to dest_id
-                case HCI_OPCODE_HCI_READ_REMOTE_SUPPORTED_FEATURES_COMMAND:
-                case HCI_OPCODE_HCI_READ_REMOTE_EXTENDED_FEATURES_COMMAND:
-                case HCI_OPCODE_HCI_READ_ENCRYPTION_KEY_SIZE: {
-                    //dest_id is connectin handle
-                    dest_id = *(uint8_t *)(packet + sizeof(struct bt_hci_cmd_hdr));
-                }
-                default:
-                    break;
-            }
-
-            pkt.p.hci_cmd.opcode = chdr->opcode;
-            pkt.p.hci_cmd.param_len = chdr->param_len;
-            pkt.p.hci_cmd.params = packet + sizeof(struct bt_hci_cmd_hdr);
-            break;
-        case HCI_ACL_DATA_PACKET:
-            pkt_type = BT_HCI_ACL_DATA;
-            hci_acl_can_send_now = 0;
-            if (size < sizeof(struct bt_hci_acl_hdr)) {
-                break;
-            }
-            struct bt_hci_acl_hdr *acl = packet;
-            //connhandle +l2cap field
-            uint16_t connhdl_l2cf, tlt_len;
-            tlt_len = acl->len;
-            connhdl_l2cf = acl->handle;
-            if (size - sizeof(struct bt_hci_acl_hdr) < tlt_len) {
-                break;
-            }
-            //get connection_handle
-            dest_id = bt_acl_handle(connhdl_l2cf);
-            pkt.p.acl_data.conhdl = dest_id;
-            pkt.p.acl_data.pb_bc_flag = bt_acl_flags(connhdl_l2cf);
-            pkt.p.acl_data.len = tlt_len;
-            pkt.p.acl_data.buffer = packet + sizeof(struct bt_hci_acl_hdr);
-
-            break;
-        default:
-            transport_send_hardware_error(0x01); // invalid HCI packet
-            return 0;
-    }
-    bt_onchiphci_send(pkt_type, dest_id, &pkt);
-    hci_acl_can_send_now = 1;
-    btstack_run_loop_poll_data_sources_from_irq();
-    transport_notify_packet_send();
-    return 0;
+    printf("CTRL-C - SIGINT received, shutting down..\n");
+    log_info("sigint_handler: shutting down");
+    hci_power_control(HCI_POWER_OFF);
 }
 
 static const hci_transport_t transport = {
@@ -478,7 +335,7 @@ static const hci_transport_t transport = {
     &transport_close,
     &transport_register_packet_handler,
     &transport_can_send_packet_now,
-    &transport_send_packet,
+    &transport_send_to_controller,
     NULL, // set baud rate
     NULL, // reset link
     NULL, // set SCO config
@@ -516,13 +373,11 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
         case BTSTACK_EVENT_STATE:
             switch (btstack_event_state_get_state(packet)) {
                 case HCI_STATE_WORKING:
-
                     printf("BTstack up and running on %s.\n", bd_addr_to_str(local_addr));
                     // setup global tlv
                     btstack_tlv_set_instance(&btstack_tlv_impl, NULL);
 
                     hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(&btstack_tlv_impl, NULL));
-
                     // setup LE Device DB using TLV
                     le_device_db_tlv_configure(&btstack_tlv_impl, NULL);
                     break;
@@ -614,9 +469,8 @@ static int bt_settings_set_bin(void *context, uint32_t tag, const uint8_t *data,
     char key[9] = { 0 };
     sprintf(key, "%x", tag);
     key[8] = 0;
-
     err = ef_set_env_blob(key, data, data_size);
-    //printf("store %s %d\n",key,err);
+
     return err;
 }
 
@@ -631,9 +485,8 @@ static int bt_settings_get_bin(void *context, uint32_t tag, uint8_t *buffer, uin
     char key[9] = { 0 };
     sprintf(key, "%x", tag);
     key[8] = 0;
-
     rlen = ef_get_env_blob(key, buffer, buffer_size, NULL);
-    //printf("read: %s %d\n",key,rlen);
+
     return rlen;
 }
 
@@ -652,10 +505,6 @@ static void settings_erase()
         printf("erase success\n");
     }
 }
-void printf_hexdump(const void *data, int size)
-{
-    return;
-}
 static const btstack_tlv_t btstack_tlv_impl = {
     .get_tag = &bt_settings_get_bin,
     .store_tag = &bt_settings_set_bin,
@@ -666,9 +515,7 @@ void port_thread(void *args)
 {
     bt_check_if_ef_ready();
 
-    //hci_dump_init(hci_dump_embedded_stdout_get_instance());
-
-    //hci_dump_init(NULL);仅查看log，不要hex dump
+    // hci_dump_init(hci_dump_embedded_stdout_get_instance());
 
     /// GET STARTED with BTstack ///
     btstack_memory_init();
@@ -682,6 +529,8 @@ void port_thread(void *args)
     hci_add_event_handler(&hci_event_callback_registration);
 
     btstack_main(0, NULL);
+
+    //gap_set_security_level(LEVEL_2);
 
     log_info("btstack executing run loop...");
     btstack_run_loop_execute();

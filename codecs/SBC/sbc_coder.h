@@ -5,7 +5,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "btstack/3rd-party/bluedroid/decoder/include/oi_codec_sbc.h"
+#include "oi_codec_sbc.h"
 
 //#include <statis.h>
 #include "a2dp_decoder.h"

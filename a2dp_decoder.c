@@ -5,7 +5,7 @@
 
 #include "btstack_config.h"
 #include "btstack.h"
-#include "btstack/src/classic/a2dp.h"
+#include "classic/a2dp.h"
 #include "FreeRTOSConfig.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -90,7 +90,7 @@ typedef struct {
     avdtp_stream_endpoint_t *endpoint;
     const tA2DP_DECODER_INTERFACE *itf;
 } a2dp_decoder;
-a2dp_decoder g_decoder[64];
+a2dp_decoder g_decoder[10];
 typedef struct {
     uint8_t cid;
     uint8_t local_seid_priority;
@@ -497,9 +497,9 @@ void decoder_release(uint8_t cid, uint8_t seid)
 
 void stop_decoder()
 {
-    i2s_stop();
+    // i2s_stop();
 }
-
+// con_handle: multi devices play
 void send_to_decoder(uint16_t con_handle, uint8_t seid, uint8_t* packet, uint16_t size) {
     if (g_decoder[seid].itf == NULL || g_decoder[seid].itf->decode_packet == NULL) {
         return;
