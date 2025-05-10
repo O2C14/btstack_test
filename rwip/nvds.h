@@ -188,4 +188,6 @@ uint8_t nvds_put(uint8_t tag, nvds_tag_len_t length, uint8_t *buf);
 
 /// @} NVDS
 
+extern uint8_t co_bdaddr[6];
+
 #endif // _NVDS_H_

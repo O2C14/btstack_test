@@ -110,7 +110,7 @@ void arch_main_loop(void)
 {
     while (1) {
         rwip_schedule();
-        vTaskDelay(1);// refer original lib
+        vTaskDelay(1); // refer original lib
     }
 }
 
@@ -118,8 +118,6 @@ static TaskHandle_t rw_main_task_hdl;
 // Don't rename this, the ld script needs it
 void btble_controller_init(int task_priority)
 {
-    // bdaddr_init();
-
     xTaskCreate(arch_main_loop, "rwip_controller", 1024 * 2, NULL, task_priority, &rw_main_task_hdl);
 
     rwip_init(0);
