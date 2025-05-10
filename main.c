@@ -1,14 +1,16 @@
-#include "bflb_mtimer.h"
-#include "board.h"
-#include "bflb_gpio.h"
 #define DBG_TAG "MAIN"
-#include "log.h"
-#include "FreeRTOSConfig.h"
-#include "FreeRTOS.h"
-#include "rfparam_adapter.h"
-#include "task.h"
-#include "bl616_glb.h"
-#include "bflb_mtd.h"
+#include <bflb_mtimer.h>
+#include <board.h>
+#include <bflb_gpio.h>
+#include <log.h>
+#include <FreeRTOSConfig.h>
+#include <FreeRTOS.h>
+#include <rfparam_adapter.h>
+#include <task.h>
+#include <bl616_glb.h>
+#include <bflb_mtd.h>
+#include <bl616_mfg_media.h>
+#include "nvds.h"
 
 static int btblecontroller_em_config(void)
 {
@@ -77,6 +79,16 @@ int main(void)
     /* For bt status save */
     bflb_mtd_init();
     easyflash_init();
+
+    if (mfg_media_read_macaddr_with_lock(co_bdaddr, 1) != 0) {
+        printf("cannot read bdaddr\n");
+    }
+
+    uint8_t tmp_bdaddr[6];
+    memcpy(tmp_bdaddr, co_bdaddr, 6);
+    for (int i = 0; i < 6; i++) {
+        co_bdaddr[5 - i] = tmp_bdaddr[i];
+    }
 
     //xTaskCreate(port_thread, "btstack_thread", 2048, NULL, configMAX_PRIORITIES - 4, &hbtstack_task);
     xTaskCreate(port_thread, "btstack_thread", 2048, NULL, 1, &hbtstack_task);
