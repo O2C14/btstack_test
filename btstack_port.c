@@ -166,6 +166,10 @@ static void data_to_host(uint8_t *bufptr, uint32_t size, rwip_eif_callback callb
         case HCI_SCO_DATA_PACKET:
         case HCI_ISO_DATA_PACKET:
         case HCI_ACL_DATA_PACKET: {
+            if (rx_msg.pkt_type == HCI_ISO_DATA_PACKET)
+            {
+                // printf("iso\n");
+            }
             taskENTER_CRITICAL();
             rx_msg.bufptr = btstack_memory_pool_get(acl_sco_iso_rx_pool_handle);
             taskEXIT_CRITICAL();
