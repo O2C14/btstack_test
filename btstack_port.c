@@ -37,15 +37,6 @@
 
 #include "rw_data_api.h"
 
-static void (*transport_packet_handler)(uint8_t packet_type, uint8_t *packet, uint16_t size);
-
-struct rx_msg_struct {
-    uint8_t pkt_type;
-    uint8_t *bufptr;
-    uint32_t size;
-};
-static QueueHandle_t msg_queue;
-
 /**
 * CONFIG_BT_RX_BUF_COUNT: number of buffer for incoming ACL packages or HCI
 * events,range 2 to 255
@@ -63,6 +54,18 @@ static QueueHandle_t msg_queue;
 #error "CONFIG_BT_RX_BUF_RSV_COUNT config error"
 #endif
 
+static void (*transport_packet_handler)(uint8_t packet_type, uint8_t *packet, uint16_t size);
+static void (*btstack_stdin_handler)(char c) = NULL;
+
+struct rx_msg_struct {
+    uint8_t pkt_type;
+    uint8_t *bufptr;
+    uint32_t size;
+};
+static QueueHandle_t msg_queue;
+static const btstack_tlv_t btstack_tlv_impl;
+static bd_addr_t local_addr = { 0 };
+
 static __ALIGNED(4) uint8_t acl_sco_iso_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_ACL_RX_BUF_LEN];
 static __ALIGNED(4) uint8_t evt_rx_pool[CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT][CONFIG_EVT_RX_BUF_LEN];
 static __ALIGNED(4) uint8_t tx_ring_buffer[1024 * 4];
@@ -72,6 +75,11 @@ static btstack_memory_pool_t evt_rx_pool_handle;
 static btstack_ring_buffer_t tx_ring_buffer_handle;
 
 static uint8_t hci_can_send_now;
+
+// data source for integration with BTstack Runloop
+static btstack_data_source_t transport_data_source;
+
+static void trigger_shutdown(void);
 
 static void transport_notify_packet_send(void)
 {
@@ -99,7 +107,7 @@ struct rwip_data {
     uint32_t size;
     rwip_eif_callback callback;
     void *dummy;
-    bool controller_underrun;// or standby
+    bool controller_underrun; // or standby
 } hci_send_to_controller;
 // The read progress of rwip is always slightly faster than that of btstack
 static void data_from_host(uint8_t *bufptr, uint32_t size, rwip_eif_callback callback, void *dummy)
@@ -166,8 +174,7 @@ static void data_to_host(uint8_t *bufptr, uint32_t size, rwip_eif_callback callb
         case HCI_SCO_DATA_PACKET:
         case HCI_ISO_DATA_PACKET:
         case HCI_ACL_DATA_PACKET: {
-            if (rx_msg.pkt_type == HCI_ISO_DATA_PACKET)
-            {
+            if (rx_msg.pkt_type == HCI_ISO_DATA_PACKET) {
                 // printf("iso\n");
             }
             taskENTER_CRITICAL();
@@ -194,10 +201,11 @@ void flow_on()
     hci_can_send_now = 1;
     // transport_notify_packet_send();// Cannot be called here
 }
-void flow_off()
+bool flow_off()
 {
     hci_can_send_now = 0;
-    // trigger_shutdown();
+    trigger_shutdown();
+    return 1;
 }
 const struct rwip_eif_api btstack_port_api = {
     .read = data_from_host,
@@ -210,9 +218,6 @@ uint32_t hal_time_ms(void)
 {
     return (uint32_t)bflb_mtimer_get_time_ms();
 }
-
-// data source for integration with BTstack Runloop
-static btstack_data_source_t transport_data_source;
 
 static void transport_deliver_hci_packets(void)
 {
@@ -364,8 +369,7 @@ static void local_version_information_handler(uint8_t *packet)
     printf("- LMP Subversion %#04x\n", lmp_subversion);
     printf("- Manufacturer   %#04x\n", manufacturer);
 }
-static const btstack_tlv_t btstack_tlv_impl;
-static bd_addr_t local_addr = { 0 };
+
 static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
     const uint8_t *params;
@@ -411,8 +415,6 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
             break;
     }
 }
-
-static void (*btstack_stdin_handler)(char c) = NULL;
 
 void btstack_stdin_setup(void (*stdin_handler)(char c))
 {
