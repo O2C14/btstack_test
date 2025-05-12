@@ -24,15 +24,21 @@ if(BUILD_BTSTACK)
 
 file(GLOB SOURCES_SRC       "${BTSTACK_ROOT}/src/*.c" "${BTSTACK_ROOT}/example/sco_demo_util.c")
 file(GLOB SOURCES_BLE       "${BTSTACK_ROOT}/src/ble/*.c")
+file(GLOB SOURCES_GATT      "${BTSTACK_ROOT}/src/ble/gatt-service/*.c")
 file(GLOB SOURCES_BLUEDROID "${BTSTACK_ROOT}/3rd-party/bluedroid/encoder/srce/*.c" "${BTSTACK_ROOT}/3rd-party/bluedroid/decoder/srce/*.c")
 file(GLOB SOURCES_CLASSIC   "${BTSTACK_ROOT}/src/classic/*.c")
+file(GLOB SOURCES_LE_AUDIO  "${BTSTACK_ROOT}/src/le-audio/*.c" "${BTSTACK_ROOT}/src/le-audio/gatt-service/*.c" "${BTSTACK_ROOT}/example/le_audio_demo_util_*.c")
 file(GLOB SOURCES_MESH      "${BTSTACK_ROOT}/src/mesh/*.c")
-file(GLOB SOURCES_GATT      "${BTSTACK_ROOT}/src/ble/gatt-service/*.c")
+file(GLOB SOURCES_MD5       "${BTSTACK_ROOT}/3rd-party/md5/md5.c")
 file(GLOB SOURCES_UECC      "${BTSTACK_ROOT}/3rd-party/micro-ecc/uECC.c")#ecc
+file(GLOB SOURCES_YXML      "${BTSTACK_ROOT}/3rd-party/yxml/yxml.c")
+file(GLOB SOURCES_HXCMOD    "${BTSTACK_ROOT}/3rd-party/hxcmod-player/*.c"  "${BTSTACK_ROOT}/3rd-party/hxcmod-player/mods/*.c")
 file(GLOB SOURCES_RIJNDAEL  "${BTSTACK_ROOT}/3rd-party/rijndael/rijndael.c")#btstack_crypto.c aes
 file(GLOB SOURCES_LC3_GOOGLE "${BTSTACK_ROOT}/3rd-party/lc3-google/src/*.c")
 file(GLOB SOURCES_FREERTOS_PORT "${BTSTACK_ROOT}/platform/freertos/btstack_run_loop_freertos.c")
+if (CONFIG_BTSTACK_LOG)
 file(GLOB SOURCES_HCI_STDOUT "${BTSTACK_ROOT}/platform/embedded/hci_dump_embedded_stdout.c")
+endif()
 file(GLOB SOURCES_BLE_OFF "${BTSTACK_ROOT}/src/ble/le_device_db_memory.c")
 list(REMOVE_ITEM SOURCES_BLE   ${SOURCES_BLE_OFF})
 
@@ -46,7 +52,12 @@ set(SOURCES
     ${SOURCES_SRC}
     ${SOURCES_UECC}
     ${SOURCES_FREERTOS_PORT}
-    #${SOURCES_HCI_STDOUT}
+    ${SOURCES_LE_AUDIO}
+    ${SOURCES_MD5}
+    ${SOURCES_YXML}
+    ${SOURCES_HXCMOD}
+    ${SOURCES_LC3_GOOGLE}
+    ${SOURCES_HCI_STDOUT}
 )
 list(SORT SOURCES)
 
