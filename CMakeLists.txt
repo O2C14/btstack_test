@@ -81,6 +81,5 @@ codecs/SBC/sbc-2.0/sbc/sbc.c
 target_sources(app PRIVATE 
     ${APP_SOURCES}
     btstack_port.c
-    libqcc743_on_bl616.c
 )
 project(btstack_test)#这个影响了sdk_add_static_library的执行,在这之后执行sdk_add_static_library都是无效的
