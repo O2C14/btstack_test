@@ -1,4 +1,9 @@
-#sdk_generate_library(btstack)
+if (CONFIG_BTSTACK_LOG)
+sdk_add_compile_definitions(-DCONFIG_BTSTACK_LOG)
+sdk_add_compile_definitions(-DENABLE_LOG_ERROR)
+sdk_add_compile_definitions(-DENABLE_LOG_INFO)
+sdk_add_compile_definitions(-DENABLE_PRINTF_HEXDUMP)
+endif()
 
 SET(BTSTACK_ROOT E:/codec/btstack)
 sdk_add_include_directories(${BTSTACK_ROOT}/3rd-party/micro-ecc)
@@ -14,6 +19,8 @@ sdk_add_include_directories(${BTSTACK_ROOT}/3rd-party/tinydir)
 sdk_add_include_directories(${BTSTACK_ROOT}/src)
 sdk_add_include_directories(${BTSTACK_ROOT}/platform/embedded)
 sdk_add_include_directories(${BTSTACK_ROOT}/platform/freertos)
+ 
+if(BUILD_BTSTACK)
 
 file(GLOB SOURCES_SRC       "${BTSTACK_ROOT}/src/*.c" "${BTSTACK_ROOT}/example/sco_demo_util.c")
 file(GLOB SOURCES_BLE       "${BTSTACK_ROOT}/src/ble/*.c")
@@ -42,4 +49,12 @@ set(SOURCES
     #${SOURCES_HCI_STDOUT}
 )
 list(SORT SOURCES)
-#sdk_library_add_sources(${SOURCES})
+
+sdk_generate_library(btstack)
+sdk_library_add_sources(${SOURCES})
+
+else()
+
+sdk_add_static_library($ENV{BL_SDK_BASE}/examples/btstack_build/build/build_out/lib/libbtstack.a)
+
+endif()
