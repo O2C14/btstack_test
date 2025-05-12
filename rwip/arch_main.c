@@ -134,28 +134,13 @@ void btble_controller_init(int task_priority)
     bflb_irq_attach(BT_IRQn, rwbt_isr, NULL);
     bflb_irq_enable(BT_IRQn);
 }
-enum assert_type {
-    ASSERT_TYPE_WARNING = 0,
-    ASSERT_TYPE_ERROR = 1,
-};
 
-#define TRC_REQ_SW_ASS_WARN(filename, code_line, param0, param1)
-#define TRC_REQ_SW_ASS_ERR(filename, code_line, param0, param1)
-void rwip_assert(const char *file, int line, int param0, int param1, uint8_t type);
 void assert_err(const char *condition, const char *file, int line)
 {
-    char *fptr = (char *)&file[strlen(file)];
-
-    // Find start of file name in path
-    while ((fptr > file) && (*fptr != '/') && (*fptr != '\\'))
-        fptr--;
-    fptr++;
-
-    TRC_REQ_SW_ASS_ERR(fptr, line, 0, 0);
-
-    // intcntl_set_interrupt_disable_all();
-
-    // rwip_assert(fptr, line, 0, 0, ASSERT_TYPE_ERROR);
+    printf("condition %s\r\n", condition);
+    printf("file [%s]\r\n", file);
+    printf("line [%d]\r\n", line);
+    vAssertCalled();
 }
 // for rf lib
 void btble_assert_err(const char *condition, const char *file, int line)
@@ -164,30 +149,14 @@ void btble_assert_err(const char *condition, const char *file, int line)
 }
 void assert_param(int param0, int param1, const char *file, int line)
 {
-    char *fptr = (char *)&file[strlen(file)];
-
-    // Find start of file name in path
-    while ((fptr > file) && (*fptr != '/') && (*fptr != '\\'))
-        fptr--;
-    fptr++;
-
-    // intcntl_set_interrupt_disable_all();
-
-    TRC_REQ_SW_ASS_ERR(fptr, line, param0, param1);
-
-    // rwip_assert(fptr, line, param0, param1, ASSERT_TYPE_ERROR);
+    printf("param %d %d\r\n", param0, param1);
+    printf("file [%s]\r\n", file);
+    printf("line [%d]\r\n", line);
 }
 
 void assert_warn(int param0, int param1, const char *file, int line)
 {
-    char *fptr = (char *)&file[strlen(file)];
-
-    // Find start of file name in path
-    while ((fptr > file) && (*fptr != '/') && (*fptr != '\\'))
-        fptr--;
-    fptr++;
-
-    TRC_REQ_SW_ASS_WARN(fptr, line, param0, param1);
-
-    // rwip_assert(fptr, line, param0, param1, ASSERT_TYPE_WARNING);
+    printf("param %d %d\r\n", param0, param1);
+    printf("file [%s]\r\n", file);
+    printf("line [%d]\r\n", line);
 }
