@@ -5,15 +5,8 @@ include(proj.conf)
 find_package(bouffalo_sdk REQUIRED HINTS $ENV{BL_SDK_BASE})
 
 option(CONFIG_BTSTACK_LOG "CONFIG BTSTACK LOG" FALSE)
-if (CONFIG_BTSTACK_LOG)
-sdk_add_compile_definitions(-DCONFIG_BTSTACK_LOG)
-sdk_add_compile_definitions(-DENABLE_LOG_ERROR)
-sdk_add_compile_definitions(-DENABLE_LOG_INFO)
-sdk_add_compile_definitions(-DENABLE_PRINTF_HEXDUMP)
-endif()
-
+option(BUILD_BTSTACK "build BTstack" FALSE)
 include(btstack.cmake)
-#include(multitarget.cmake)
 
 sdk_set_main_file(main.c)
 sdk_add_include_directories(.)
@@ -23,13 +16,11 @@ sdk_add_include_directories(rwip)
 #sdk_add_static_library($ENV{BL_SDK_BASE}/examples/rwip/build/build_out/lib/librwip.a)
 sdk_add_static_library(rwip/librwip.a)
 sdk_add_static_library(rwip/librwip_rf.a)
-sdk_add_static_library($ENV{BL_SDK_BASE}/examples/btstack_build/build/build_out/lib/libbtstack.a)
 target_sources(app PRIVATE 
     rwip/arch_main.c
     rwip/nvds.c
     rwip/rwip_rf_bl616.c
 )
-
 
 #选择一个例子
 #Choose an example
