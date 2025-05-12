@@ -135,28 +135,32 @@ void btble_controller_init(int task_priority)
     bflb_irq_enable(BT_IRQn);
 }
 
-void assert_err(const char *condition, const char *file, int line)
+void assert_err(const char *condition, const char *func, int line)
 {
     printf("condition %s\r\n", condition);
-    printf("file [%s]\r\n", file);
+    printf("func [%s]\r\n", func);
     printf("line [%d]\r\n", line);
     vAssertCalled();
 }
 // for rf lib
 void btble_assert_err(const char *condition, const char *file, int line)
 {
-    assert_err(condition, file, line);
-}
-void assert_param(int param0, int param1, const char *file, int line)
-{
-    printf("param %d %d\r\n", param0, param1);
+    printf("condition %s\r\n", condition);
     printf("file [%s]\r\n", file);
+    printf("line [%d]\r\n", line);
+    vAssertCalled();
+}
+
+void assert_param(int param0, int param1, const char *func, int line)
+{
+    printf("param 0x%x 0x%x\r\n", param0, param1);
+    printf("func [%s]\r\n", func);
     printf("line [%d]\r\n", line);
 }
 
-void assert_warn(int param0, int param1, const char *file, int line)
+void assert_warn(int param0, int param1, const char *func, int line)
 {
-    printf("param %d %d\r\n", param0, param1);
-    printf("file [%s]\r\n", file);
+    printf("param 0x%x 0x%x\r\n", param0, param1);
+    printf("func [%s]\r\n", func);
     printf("line [%d]\r\n", line);
 }
