@@ -118,10 +118,7 @@ static TaskHandle_t rw_main_task_hdl;
 // Don't rename this, the ld script needs it
 void btble_controller_init(int task_priority)
 {
-    xTaskCreate(arch_main_loop, "rwip_controller", 1024 * 2, NULL, task_priority, &rw_main_task_hdl);
-
-    rwip_init(0);
-
+    // refer bluegrip/src/arch/main/arch_main.c
     bflb_irq_clear_pending(DM_IRQn);
     bflb_irq_attach(DM_IRQn, rwip_isr, NULL);
     bflb_irq_enable(DM_IRQn);
@@ -133,6 +130,10 @@ void btble_controller_init(int task_priority)
     bflb_irq_clear_pending(BT_IRQn);
     bflb_irq_attach(BT_IRQn, rwbt_isr, NULL);
     bflb_irq_enable(BT_IRQn);
+
+    rwip_init(0);
+
+    xTaskCreate(arch_main_loop, "rwip_controller", 1024 * 2, NULL, task_priority, &rw_main_task_hdl);
 }
 
 void assert_err(const char *condition, const char *func, int line)
