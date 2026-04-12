@@ -270,7 +270,7 @@ void decoder_save_sbc_config(uint8_t cid, uint8_t *packet, uint8_t remote_seid)
             break;
         }
     }
-    if (g_a2dp_config_process_info.local_seid_priority > i) {
+    if (g_decoder[i].endpoint == NULL || g_a2dp_config_process_info.local_seid_priority > i) {
         return;
     }
 
@@ -305,7 +305,7 @@ void decoder_save_aac_config(uint8_t cid, uint8_t *capa, uint8_t remote_seid)
             break;
         }
     }
-    if (g_a2dp_config_process_info.local_seid_priority > i) {
+    if (g_decoder[i].endpoint == NULL || g_a2dp_config_process_info.local_seid_priority > i) {
         return;
     }
 
@@ -343,12 +343,13 @@ void decoder_save_aac_config(uint8_t cid, uint8_t *capa, uint8_t remote_seid)
 void decoder_save_vendor_config(uint8_t cid, uint8_t *capa, uint16_t len, uint8_t remote_seid)
 {
     size_t i;
+    uint8_t *self_capa = NULL;
     bool have_valid_capa = false;
     for (i = 1; i != (sizeof(g_decoder) / sizeof(g_decoder[0])); i++) {
         if (g_decoder[i].endpoint == NULL) {
             continue;
         }
-        uint8_t *self_capa = g_decoder[i].endpoint->sep.capabilities.media_codec.media_codec_information;
+        self_capa = g_decoder[i].endpoint->sep.capabilities.media_codec.media_codec_information;
         if (*((uint32_t *)(self_capa)) == *((uint32_t *)(capa)) &&
             *((uint16_t *)(self_capa) + 2) == *((uint16_t *)(capa) + 2)) {
             have_valid_capa = true;
@@ -421,6 +422,58 @@ void decoder_save_vendor_config(uint8_t cid, uint8_t *capa, uint16_t len, uint8_
                     break;
                 case A2DP_LHDCV5_CODEC_ID:
                     printf("A2DP_LHDCV5_CODEC_ID \n");
+
+                    tA2DP_LHDCv5_CIE* lhdcv5_capa = capa;
+                    tA2DP_LHDCv5_CIE* lhdcv5_cfg = self_capa;
+                    if (g_a2dp_config_process_info.local_seid_priority > i) {
+                        break;
+                    }
+                    g_a2dp_config_process_info.local_seid_priority = i;
+                    lhdcv5_cfg->vendorId = A2DP_LHDC_VENDOR_ID;
+                    lhdcv5_cfg->codecId = A2DP_LHDCV5_CODEC_ID;
+
+                    memset(lhdcv5_cfg->config, 0, sizeof(lhdcv5_cfg->config));
+                    if (lhdcv5_capa->config[0] & A2DP_LHDCV5_SAMPLING_FREQ_48000) {
+                        lhdcv5_cfg->config[0] |= A2DP_LHDCV5_SAMPLING_FREQ_48000;
+                    } else if (lhdcv5_capa->config[0] & A2DP_LHDCV5_SAMPLING_FREQ_44100) {
+                        lhdcv5_cfg->config[0] |= A2DP_LHDCV5_SAMPLING_FREQ_44100;
+                    } else if (lhdcv5_capa->config[0] & A2DP_LHDCV5_SAMPLING_FREQ_96000) {
+                        lhdcv5_cfg->config[0] |= A2DP_LHDCV5_SAMPLING_FREQ_96000;
+                    } else if (lhdcv5_capa->config[0] & A2DP_LHDCV5_SAMPLING_FREQ_192000) {
+                        lhdcv5_cfg->config[0] |= A2DP_LHDCV5_SAMPLING_FREQ_192000;
+                    }
+                    if (lhdcv5_capa->config[1] & A2DP_LHDCV5_BIT_FMT_16) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_BIT_FMT_16;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_BIT_FMT_24) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_BIT_FMT_24;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_BIT_FMT_32) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_BIT_FMT_32;
+                    }
+                    if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MAX_BIT_RATE_1000K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MAX_BIT_RATE_1000K;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MAX_BIT_RATE_900K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MAX_BIT_RATE_900K;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MAX_BIT_RATE_500K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MAX_BIT_RATE_500K;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MAX_BIT_RATE_400K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MAX_BIT_RATE_400K;
+                    }
+                    if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MIN_BIT_RATE_400K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MIN_BIT_RATE_400K;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MIN_BIT_RATE_256K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MIN_BIT_RATE_256K;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MIN_BIT_RATE_128K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MIN_BIT_RATE_128K;
+                    } else if (lhdcv5_capa->config[1] & A2DP_LHDCV5_MIN_BIT_RATE_64K) {
+                        lhdcv5_cfg->config[1] |= A2DP_LHDCV5_MIN_BIT_RATE_64K;
+                    }
+                    if (lhdcv5_capa->config[3] & A2DP_LHDCV5_FEATURE_JAS) {
+                        lhdcv5_cfg->config[3] |= A2DP_LHDCV5_FEATURE_JAS;
+                    }
+                    g_a2dp_config_process_info.cfg = &a2dp_lhdcv5_sink_cfg;
+                    g_a2dp_config_process_info.cfg_len = sizeof(a2dp_lhdcv5_sink_cfg);
+                    g_a2dp_config_process_info.cid = cid;
+                    g_a2dp_config_process_info.remote_seid = remote_seid;
                     break;
                 default:
                     break;

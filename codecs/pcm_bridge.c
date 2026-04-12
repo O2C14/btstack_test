@@ -30,7 +30,7 @@ static struct bflb_i2s_config_s i2s0_config = {
     .channel_mode = I2S_CHANNEL_MODE_NUM_2,
     .frame_width = I2S_SLOT_WIDTH_16,
     .data_width = I2S_SLOT_WIDTH_16,
-    .fs_offset_cycle = 0,
+    .fs_offset_cycle = 1,
     .tx_fifo_threshold = 0,
     .rx_fifo_threshold = 0
 };
@@ -168,15 +168,13 @@ void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_
         i2s0_config.bclk_freq_hz = sample_rate * data_width * sound_channel_num;
         printf("samplerate:%d data_width:%d channel:%d\r\n", sample_rate, data_width, sound_channel_num);
         printf("base_buffer_size:%d buffer_num:%d \r\n", base_buffer_size, buffer_num);
-        i2s0_config.tx_fifo_threshold = 16 - 1;
-        i2s0_config.rx_fifo_threshold = 16 - 1;
+        i2s0_config.tx_fifo_threshold = 8 - 1;
+        i2s0_config.rx_fifo_threshold = 8 - 1;
         const bool Used_DMA_BURST = true;
         if (data_width == 16) {
             i2s0_config.frame_width = I2S_SLOT_WIDTH_16;
             i2s0_config.data_width = I2S_SLOT_WIDTH_16;
             if (Used_DMA_BURST) {
-                i2s0_config.tx_fifo_threshold = 16 - 1;
-                i2s0_config.rx_fifo_threshold = 16 - 1;
                 dma0_ch0_config.src_burst_count = DMA_BURST_INCR4;
                 dma0_ch0_config.dst_burst_count = DMA_BURST_INCR4;
                 dma0_ch0_config.src_width = DMA_DATA_WIDTH_16BIT;
@@ -186,8 +184,6 @@ void pcm_open(uint32_t sample_rate, uint32_t data_width, uint32_t sound_channel_
             i2s0_config.frame_width = I2S_SLOT_WIDTH_32;
             i2s0_config.data_width = I2S_SLOT_WIDTH_32;
             if (Used_DMA_BURST) {
-                i2s0_config.tx_fifo_threshold = 16 - 1;
-                i2s0_config.rx_fifo_threshold = 16 - 1;
                 dma0_ch0_config.src_burst_count = DMA_BURST_INCR1;
                 dma0_ch0_config.dst_burst_count = DMA_BURST_INCR1;
                 dma0_ch0_config.src_width = DMA_DATA_WIDTH_32BIT;

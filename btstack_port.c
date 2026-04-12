@@ -36,9 +36,8 @@
 #include <classic/btstack_link_key_db_tlv.h>
 
 #include "rw_data_api.h"
-
+#include "lfs.h"
 static void trigger_shutdown(void);
-
 
 static void (*transport_packet_handler)(uint8_t packet_type, uint8_t *packet, uint16_t size);
 struct rx_msg_struct {
@@ -101,7 +100,7 @@ struct rwip_data {
     uint32_t size;
     rwip_eif_callback callback;
     void *dummy;
-    bool controller_underrun;// or standby
+    bool controller_underrun; // or standby
 } hci_send_to_controller;
 // The read progress of rwip is always slightly faster than that of btstack
 static void data_from_host(uint8_t *bufptr, uint32_t size, rwip_eif_callback callback, void *dummy)
@@ -141,11 +140,8 @@ static int transport_send_to_controller(uint8_t packet_type, uint8_t *packet, in
     }
 
     if (hci_send_to_controller.controller_underrun == 1) {
-        data_from_host(
-            hci_send_to_controller.bufptr,
-            hci_send_to_controller.size,
-            hci_send_to_controller.callback,
-            hci_send_to_controller.dummy);
+        data_from_host(hci_send_to_controller.bufptr, hci_send_to_controller.size, hci_send_to_controller.callback,
+                       hci_send_to_controller.dummy);
     }
 
     return 0;
@@ -256,13 +252,9 @@ static void transport_init(const void *transport_config)
 
     btstack_ring_buffer_init(&tx_ring_buffer_handle, tx_ring_buffer, sizeof(tx_ring_buffer));
 
-    btstack_memory_pool_create(&acl_sco_iso_rx_pool_handle,
-                               acl_sco_iso_rx_pool,
-                               CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT,
-                               CONFIG_ACL_RX_BUF_LEN);
-    btstack_memory_pool_create(&evt_rx_pool_handle,
-                               evt_rx_pool,
-                               CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT,
+    btstack_memory_pool_create(&acl_sco_iso_rx_pool_handle, acl_sco_iso_rx_pool,
+                               CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT, CONFIG_ACL_RX_BUF_LEN);
+    btstack_memory_pool_create(&evt_rx_pool_handle, evt_rx_pool, CONFIG_BT_HCI_RESERVE + CONFIG_BT_RX_BUF_COUNT,
                                CONFIG_EVT_RX_BUF_LEN);
     msg_queue = xQueueCreate(DATA_MSG_CNT, sizeof(struct rx_msg_struct));
 
@@ -498,12 +490,15 @@ static void settings_delete(void *context, uint32_t tag)
     ef_del_env(key);
     return;
 }
+lfs_t *get_ef_lfs_handle();
 static void settings_erase()
 {
-    //like bflb_mtd_erase_all
-    if (ef_port_erase(0, 32768) == 0) {
-        printf("erase success\n");
-    }
+    // like bflb_mtd_erase_all
+    // if (ef_port_erase(0, 32768) == 0) {
+    //     printf("erase success\n");
+    // }
+
+    lfs_remove(get_ef_lfs_handle(), "/_ef4_kvs_");
 }
 static const btstack_tlv_t btstack_tlv_impl = {
     .get_tag = &bt_settings_get_bin,
